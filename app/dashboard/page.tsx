@@ -10,15 +10,17 @@ import { Licitacao } from '@/lib/types';
 
 async function getRecentLicitacoes(): Promise<Licitacao[]> {
   try {
-    const today = new Date().toISOString().split('T')[0];
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
+    const today = new Date();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
+    const fmt = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
+    // Busca pregão eletrônico (mais comum) como prévia
     const res = await fetch(
-      `https://dadosabertos.compras.gov.br/modulo-contratacoes/1_consultarContratacoes_PNCP_14133?pagina=1&tamanhoPagina=5&dataPublicacaoPncpInicial=${sevenDaysAgo}&dataPublicacaoPncpFinal=${today}`,
+      `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${fmt(sevenDaysAgo)}&dataFinal=${fmt(today)}&pagina=1&tamanhoPagina=10&codigoModalidadeContratacao=7`,
       { headers: { 'Accept': 'application/json' }, next: { revalidate: 300 } }
     );
     if (!res.ok) return [];
     const json = await res.json();
-    return json.data || [];
+    return (json.data || []).slice(0, 5);
   } catch {
     return [];
   }
