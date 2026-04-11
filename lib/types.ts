@@ -89,7 +89,7 @@ export interface Notificacao {
   notificacao_body: string;
   notificacao_destinatario: number;
   notificacao_data: string;
-  notificacao_lida: number;
+  notificacao_lido: number;
 }
 
 export interface Plano {

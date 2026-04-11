@@ -21,7 +21,7 @@ export const authOptions: NextAuthOptions = {
         const hashedPassword = md5(credentials.password);
 
         const users = await sql`
-          SELECT u.usuario_id, u.usuario_nome, u.usuario_email, u.usuario_funcao, u.usuario_hash,
+          SELECT u.usuario_id, u.usuario_display, u.usuario_email, u.usuario_funcao, u.usuario_hash,
                  e.empresa_id, e.empresa_nome, e.empresa_cnpj
           FROM usuarios u
           LEFT JOIN empresas_associacao ea ON ea.ea_usuario = u.usuario_id
@@ -37,7 +37,7 @@ export const authOptions: NextAuthOptions = {
 
         return {
           id: String(user.usuario_id),
-          name: user.usuario_nome,
+          name: user.usuario_display,
           email: user.usuario_email,
           funcao: user.usuario_funcao,
           hash: user.usuario_hash,

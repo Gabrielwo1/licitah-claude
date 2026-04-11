@@ -21,7 +21,7 @@ async function getAdminStats() {
 
 async function getUsers() {
   return await sql`
-    SELECT usuario_id, usuario_nome, usuario_email, usuario_funcao, usuario_ativo
+    SELECT usuario_id, usuario_display, usuario_email, usuario_funcao, usuario_ativo
     FROM usuarios
     ORDER BY usuario_id DESC
     LIMIT 100

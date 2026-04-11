@@ -11,9 +11,9 @@ export async function PUT(req: NextRequest, { params }: { params: Promise<{ id: 
   const { id } = await params;
 
   if (id === 'all') {
-    await sql`UPDATE notificacoes SET notificacao_lida = 1 WHERE notificacao_destinatario = ${userId}`;
+    await sql`UPDATE notificacoes SET notificacao_lido = 1 WHERE notificacao_destinatario = ${userId}`;
   } else {
-    await sql`UPDATE notificacoes SET notificacao_lida = 1 WHERE notificacao_id = ${id} AND notificacao_destinatario = ${userId}`;
+    await sql`UPDATE notificacoes SET notificacao_lido = 1 WHERE notificacao_id = ${id} AND notificacao_destinatario = ${userId}`;
   }
 
   return NextResponse.json({ success: true });

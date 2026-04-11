@@ -22,18 +22,18 @@ export default function NotificacoesPage() {
   async function marcarLida(id: number) {
     const res = await fetch(`/api/notificacoes/${id}`, { method: 'PUT' });
     if (res.ok) {
-      setNotificacoes(prev => prev.map(n => n.notificacao_id === id ? { ...n, notificacao_lida: 1 } : n));
+      setNotificacoes(prev => prev.map(n => n.notificacao_id === id ? { ...n, notificacao_lido: 1 } : n));
     }
   }
 
   async function marcarTodasLidas() {
     const res = await fetch('/api/notificacoes/all', { method: 'PUT' });
     if (res.ok) {
-      setNotificacoes(prev => prev.map(n => ({ ...n, notificacao_lida: 1 })));
+      setNotificacoes(prev => prev.map(n => ({ ...n, notificacao_lido: 1 })));
     }
   }
 
-  const naoLidas = notificacoes.filter(n => n.notificacao_lida === 0);
+  const naoLidas = notificacoes.filter(n => n.notificacao_lido === 0);
 
   return (
     <div className="space-y-4 max-w-2xl">
@@ -69,12 +69,12 @@ export default function NotificacoesPage() {
           {notificacoes.map((n) => (
             <Card
               key={n.notificacao_id}
-              className={`transition-colors ${n.notificacao_lida === 0 ? 'border-[#0a1175]/20 bg-blue-50/30' : ''}`}
+              className={`transition-colors ${n.notificacao_lido === 0 ? 'border-[#0a1175]/20 bg-blue-50/30' : ''}`}
             >
               <CardContent className="p-4">
                 <div className="flex items-start justify-between gap-3">
                   <div className="flex items-start gap-3 flex-1 min-w-0">
-                    {n.notificacao_lida === 0 && (
+                    {n.notificacao_lido === 0 && (
                       <div className="w-2 h-2 bg-[#0a1175] rounded-full mt-2 shrink-0" />
                     )}
                     <div className="flex-1 min-w-0">
@@ -83,7 +83,7 @@ export default function NotificacoesPage() {
                       <p className="text-xs text-gray-400 mt-1">{formatDateTime(n.notificacao_data)}</p>
                     </div>
                   </div>
-                  {n.notificacao_lida === 0 && (
+                  {n.notificacao_lido === 0 && (
                     <button
                       onClick={() => marcarLida(n.notificacao_id)}
                       className="text-xs text-[#0a1175] hover:underline shrink-0"

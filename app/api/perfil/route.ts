@@ -16,7 +16,7 @@ export async function PUT(req: NextRequest) {
   const emailCheck = await sql`SELECT usuario_id FROM usuarios WHERE usuario_email = ${email} AND usuario_id != ${userId}`;
   if (emailCheck.length > 0) return NextResponse.json({ error: 'Email já em uso por outro usuário' }, { status: 409 });
 
-  await sql`UPDATE usuarios SET usuario_nome = ${nome}, usuario_email = ${email} WHERE usuario_id = ${userId}`;
+  await sql`UPDATE usuarios SET usuario_display = ${nome}, usuario_email = ${email} WHERE usuario_id = ${userId}`;
 
   return NextResponse.json({ success: true });
 }

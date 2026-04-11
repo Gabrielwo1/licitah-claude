@@ -8,7 +8,7 @@ import { Search } from 'lucide-react';
 
 interface User {
   usuario_id: number;
-  usuario_nome: string;
+  usuario_display: string;
   usuario_email: string;
   usuario_funcao: number;
   usuario_ativo: number;
@@ -43,7 +43,7 @@ export function AdminUsersTable({ users }: Props) {
   }
 
   const filtered = localUsers.filter(u =>
-    u.usuario_nome.toLowerCase().includes(search.toLowerCase()) ||
+    (u.usuario_display || '').toLowerCase().includes(search.toLowerCase()) ||
     u.usuario_email.toLowerCase().includes(search.toLowerCase())
   );
 
@@ -74,7 +74,7 @@ export function AdminUsersTable({ users }: Props) {
           <tbody className="divide-y divide-gray-100">
             {filtered.map((u) => (
               <tr key={u.usuario_id} className="hover:bg-gray-50">
-                <td className="px-4 py-3 font-medium text-gray-900">{u.usuario_nome}</td>
+                <td className="px-4 py-3 font-medium text-gray-900">{u.usuario_display}</td>
                 <td className="px-4 py-3 text-gray-600">{u.usuario_email}</td>
                 <td className="px-4 py-3">
                   <Badge variant={u.usuario_funcao === 0 ? 'default' : u.usuario_funcao === 1 ? 'orange' : 'secondary'}>
