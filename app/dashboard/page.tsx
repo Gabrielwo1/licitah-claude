@@ -5,13 +5,13 @@ import { Search, Star, Target, FileText } from 'lucide-react';
 import Link from 'next/link';
 import { Button } from '@/components/ui/button';
 import sql from '@/lib/db';
-import { formatCurrency, formatDate, todayISO, sevenDaysAgoISO } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
 
 async function getRecentLicitacoes(): Promise<Licitacao[]> {
   try {
-    const today = todayISO();
-    const sevenDaysAgo = sevenDaysAgoISO();
+    const today = new Date().toISOString().split('T')[0];
+    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000).toISOString().split('T')[0];
     const res = await fetch(
       `https://dadosabertos.compras.gov.br/modulo-contratacoes/1_consultarContratacoes_PNCP_14133?pagina=1&tamanhoPagina=5&dataPublicacaoPncpInicial=${sevenDaysAgo}&dataPublicacaoPncpFinal=${today}`,
       { headers: { 'Accept': 'application/json' }, next: { revalidate: 300 } }
@@ -25,17 +25,22 @@ async function getRecentLicitacoes(): Promise<Licitacao[]> {
 }
 
 async function getStats(userId: string, empresaId: string | null) {
-  const favCount = await sql`SELECT COUNT(*) as c FROM favoritos WHERE favorito_autor = ${userId}`;
-  const taskCount = await sql`SELECT COUNT(*) as c FROM licitacoes_tarefas WHERE licitacoes_tarefa_empresa = ${empresaId || 0} AND licitacoes_tarefa_status = 0`;
-  const oppCount = await sql`SELECT COUNT(*) as c FROM licitacoes_oportunidades WHERE licitacoes_oportunidade_empresa = ${empresaId || 0}`;
-  const notifCount = await sql`SELECT COUNT(*) as c FROM notificacoes WHERE notificacao_destinatario = ${userId} AND notificacao_lida = 0`;
-
-  return {
-    favoritos: Number(favCount[0]?.c || 0),
-    tarefas: Number(taskCount[0]?.c || 0),
-    oportunidades: Number(oppCount[0]?.c || 0),
-    notificacoes: Number(notifCount[0]?.c || 0),
-  };
+  try {
+    const [favCount, taskCount, oppCount, notifCount] = await Promise.all([
+      sql`SELECT COUNT(*) as c FROM favoritos WHERE favorito_autor = ${userId}`,
+      sql`SELECT COUNT(*) as c FROM licitacoes_tarefas WHERE licitacoes_tarefa_empresa = ${empresaId || 0} AND licitacoes_tarefa_status = 0`,
+      sql`SELECT COUNT(*) as c FROM licitacoes_oportunidades WHERE licitacoes_oportunidade_empresa = ${empresaId || 0}`,
+      sql`SELECT COUNT(*) as c FROM notificacoes WHERE notificacao_destinatario = ${userId} AND notificacao_lida = 0`,
+    ]);
+    return {
+      favoritos: Number(favCount[0]?.c || 0),
+      tarefas: Number(taskCount[0]?.c || 0),
+      oportunidades: Number(oppCount[0]?.c || 0),
+      notificacoes: Number(notifCount[0]?.c || 0),
+    };
+  } catch {
+    return { favoritos: 0, tarefas: 0, oportunidades: 0, notificacoes: 0 };
+  }
 }
 
 export default async function DashboardPage() {
@@ -53,7 +58,7 @@ export default async function DashboardPage() {
   return (
     <div className="space-y-6">
       {/* Welcome */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Olá, {firstName}! 👋</h1>
           <p className="text-gray-500 mt-1">Veja as últimas licitações disponíveis</p>
@@ -136,7 +141,7 @@ export default async function DashboardPage() {
       {/* Recent licitações */}
       <Card>
         <CardHeader className="flex flex-row items-center justify-between pb-3">
-          <CardTitle className="text-base">Licitações recentes</CardTitle>
+          <CardTitle className="text-base">Licitações recentes (últimos 7 dias)</CardTitle>
           <Link href="/dashboard/licitacoes" className="text-sm text-[#0a1175] hover:underline">
             Ver todas →
           </Link>
@@ -145,7 +150,7 @@ export default async function DashboardPage() {
           {licitacoes.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
               <p>Não foi possível carregar licitações no momento.</p>
-              <p className="text-sm mt-1">Tente novamente mais tarde.</p>
+              <p className="text-sm mt-1">A API do governo pode estar indisponível. Tente novamente.</p>
             </div>
           ) : (
             <div className="divide-y divide-gray-100">
