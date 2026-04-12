@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, CheckSquare, FileText, Paperclip, ShieldCheck,
   Calendar, Plus, Trash2, Check, ChevronLeft, ChevronRight,
-  ExternalLink, Clock, X,
+  ExternalLink, Clock, X, Search,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 
@@ -914,27 +914,51 @@ function AnexosTab({ licitacaoId }: { licitacaoId: string }) {
 
 function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
   const [habilitacoes, setHabilitacoes] = useState<Habilitacao[]>([]);
+  const [todosDocsUsuario, setTodosDocsUsuario] = useState<Habilitacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [showModal, setShowModal] = useState(false);
+  const [modalTab, setModalTab] = useState<'novo' | 'existente'>('novo');
   const [nome, setNome] = useState('');
   const [dataValidade, setDataValidade] = useState('');
   const [file, setFile] = useState<File | null>(null);
   const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [vinculando, setVinculando] = useState<number | null>(null);
   const [toast, setToast] = useState<string | null>(null);
+  const [searchExist, setSearchExist] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchHabilitacoes = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/habilitacoes?licitacaoGoverno=${encodeURIComponent(licitacaoId)}`);
+    const [res, resAll] = await Promise.all([
+      fetch(`/api/habilitacoes?licitacaoGoverno=${encodeURIComponent(licitacaoId)}`),
+      fetch('/api/habilitacoes?all=true'),
+    ]);
     if (res.ok) setHabilitacoes(await res.json());
+    if (resAll.ok) setTodosDocsUsuario(await resAll.json());
     setLoading(false);
   }, [licitacaoId]);
 
   useEffect(() => { fetchHabilitacoes(); }, [fetchHabilitacoes]);
 
   function resetModal() {
-    setNome(''); setDataValidade(''); setFile(null); setShowModal(false);
+    setNome(''); setDataValidade(''); setFile(null);
+    setShowModal(false); setModalTab('novo'); setSearchExist('');
+  }
+
+  async function vincularExistente(docId: number) {
+    setVinculando(docId);
+    const res = await fetch('/api/habilitacoes', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ vincular: true, docId, licitacaoGoverno: licitacaoId }),
+    });
+    if (res.ok) {
+      fetchHabilitacoes();
+      setToast('Documento vinculado com sucesso!');
+      setTimeout(() => setToast(null), 3500);
+    }
+    setVinculando(null);
   }
 
   function onDrop(e: React.DragEvent) {
@@ -1002,117 +1026,139 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
       {/* Modal */}
       {showModal && (
         <div onClick={resetModal} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
-            {/* Modal header */}
-            <div className="flex items-center justify-between" style={{ marginBottom: '24px' }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '580px', maxHeight: '90vh', overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+
+            {/* Header */}
+            <div className="flex items-center justify-between" style={{ marginBottom: '20px' }}>
               <span style={{ fontSize: '18px', fontWeight: 800, color: '#262E3A', letterSpacing: '-0.3px' }}>ADICIONE UM DOCUMENTO</span>
               <button onClick={resetModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B' }}>
                 <X className="h-5 w-5" />
               </button>
             </div>
 
-            {/* Nome + Validade */}
-            <div className="flex gap-3" style={{ marginBottom: '16px' }}>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Nome do Anexo</label>
-                <input type="text" placeholder="Nome Do Anexo" value={nome} onChange={e => setNome(e.target.value)} style={inp} />
-              </div>
-              <div style={{ flex: 1 }}>
-                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Data de Validade</label>
-                <input type="date" value={dataValidade} onChange={e => setDataValidade(e.target.value)} style={inp} />
-              </div>
+            {/* Tabs */}
+            <div className="flex gap-0" style={{ marginBottom: '20px', border: '1px solid #E8E8E8', borderRadius: '8px', overflow: 'hidden' }}>
+              {[{ key: 'novo', label: '+ Novo documento' }, { key: 'existente', label: '📁 Usar documento existente' }].map(t => (
+                <button key={t.key} onClick={() => setModalTab(t.key as 'novo' | 'existente')}
+                  style={{ flex: 1, padding: '10px', fontSize: '13px', fontWeight: 600, border: 'none', cursor: 'pointer', backgroundColor: modalTab === t.key ? '#262E3A' : '#F9F9F9', color: modalTab === t.key ? '#fff' : '#7B7B7B', transition: 'all .15s' }}>
+                  {t.label}
+                </button>
+              ))}
             </div>
 
-            {/* Drop zone */}
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              onDragOver={e => { e.preventDefault(); setDragging(true); }}
-              onDragLeave={() => setDragging(false)}
-              onDrop={onDrop}
-              style={{
-                border: `2px dashed ${dragging ? '#FF6600' : '#CFCFCF'}`,
-                borderRadius: '10px',
-                padding: '32px 16px',
-                textAlign: 'center',
-                cursor: 'pointer',
-                backgroundColor: dragging ? '#FFF8F5' : '#FAFAFA',
-                marginBottom: '24px',
-                transition: 'all .2s',
-              }}
-            >
-              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
-              {file ? (
-                <div>
-                  <Paperclip className="h-6 w-6 mx-auto" style={{ color: '#FF6600', marginBottom: '6px' }} />
-                  <p style={{ fontSize: '13px', color: '#262E3A', fontWeight: 600 }}>{file.name}</p>
-                  <p style={{ fontSize: '11px', color: '#9B9B9B' }}>{(file.size / 1024).toFixed(1)} KB</p>
+            {modalTab === 'novo' ? (
+              <>
+                {/* Nome + Validade */}
+                <div className="flex gap-3" style={{ marginBottom: '16px' }}>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Nome do Anexo</label>
+                    <input type="text" placeholder="Nome Do Anexo" value={nome} onChange={e => setNome(e.target.value)} style={inp} />
+                  </div>
+                  <div style={{ flex: 1 }}>
+                    <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Data de Validade</label>
+                    <input type="date" value={dataValidade} onChange={e => setDataValidade(e.target.value)} style={inp} />
+                  </div>
                 </div>
-              ) : (
-                <p style={{ fontSize: '14px', color: '#9B9B9B' }}>Arraste ou solte seu arquivo aqui</p>
-              )}
-            </div>
 
-            {/* Documentos salvos */}
-            {habilitacoes.length > 0 && (
-              <div style={{ marginBottom: '24px' }}>
-                <p style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A', marginBottom: '12px' }}>Documentos salvos</p>
-                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                  <thead>
-                    <tr style={{ borderBottom: '1px solid #F0F0F0' }}>
-                      {['Nome do arquivo', 'Arquivo', 'Anexado em', 'Opções'].map(h => (
-                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px', fontWeight: 700, color: '#262E3A' }}>{h}</th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {habilitacoes.map(h => {
-                      const vencido = h.licitacoes_habilitacao_data_validade
-                        ? new Date(h.licitacoes_habilitacao_data_validade) < new Date() : false;
-                      return (
-                        <tr key={h.licitacoes_habilitacao_id} style={{ borderBottom: '1px solid #F8F8F8' }}>
-                          <td style={{ padding: '8px', color: vencido ? '#FF4500' : '#262E3A', fontWeight: 500 }}>
-                            {h.licitacoes_habilitacao_nome}
-                            {vencido && <span style={{ fontSize: '10px', color: '#FF4500', marginLeft: '6px' }}>VENCIDO</span>}
-                          </td>
-                          <td style={{ padding: '8px', color: '#7B7B7B', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                            {h.licitacoes_habilitacao_documento || '—'}
-                          </td>
-                          <td style={{ padding: '8px', color: '#9B9B9B', whiteSpace: 'nowrap' }}>
-                            {h.licitacoes_habilitacao_data_validade ? formatDate(h.licitacoes_habilitacao_data_validade) : '—'}
-                          </td>
-                          <td style={{ padding: '8px' }}>
-                            <div className="flex gap-1">
-                              <button
-                                title="Visualizar"
-                                style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                              >
-                                <ExternalLink className="h-3.5 w-3.5" />
-                              </button>
-                              <button
-                                onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)}
-                                title="Excluir"
-                                style={{ backgroundColor: '#FF4500', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
-                              >
-                                <Trash2 className="h-3.5 w-3.5" />
-                              </button>
+                {/* Drop zone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={e => { e.preventDefault(); setDragging(true); }}
+                  onDragLeave={() => setDragging(false)}
+                  onDrop={onDrop}
+                  style={{ border: `2px dashed ${dragging ? '#FF6600' : '#CFCFCF'}`, borderRadius: '10px', padding: '32px 16px', textAlign: 'center', cursor: 'pointer', backgroundColor: dragging ? '#FFF8F5' : '#FAFAFA', marginBottom: '20px', transition: 'all .2s' }}
+                >
+                  <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
+                  {file ? (
+                    <div>
+                      <Paperclip className="h-6 w-6 mx-auto" style={{ color: '#FF6600', marginBottom: '6px' }} />
+                      <p style={{ fontSize: '13px', color: '#262E3A', fontWeight: 600 }}>{file.name}</p>
+                      <p style={{ fontSize: '11px', color: '#9B9B9B' }}>{(file.size / 1024).toFixed(1)} KB</p>
+                    </div>
+                  ) : (
+                    <p style={{ fontSize: '14px', color: '#9B9B9B' }}>Arraste ou solte seu arquivo aqui</p>
+                  )}
+                </div>
+
+                {/* Documentos desta licitação */}
+                {habilitacoes.length > 0 && (
+                  <div style={{ marginBottom: '20px' }}>
+                    <p style={{ fontSize: '13px', fontWeight: 700, color: '#262E3A', marginBottom: '10px' }}>Documentos desta licitação</p>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '160px', overflowY: 'auto' }}>
+                      {habilitacoes.map(h => {
+                        const vencido = h.licitacoes_habilitacao_data_validade ? new Date(h.licitacoes_habilitacao_data_validade) < new Date() : false;
+                        return (
+                          <div key={h.licitacoes_habilitacao_id} className="flex items-center gap-2" style={{ backgroundColor: '#F9F9F9', borderRadius: '6px', padding: '8px 12px', border: '1px solid #E8E8E8' }}>
+                            <ShieldCheck className="h-3.5 w-3.5 shrink-0" style={{ color: vencido ? '#FF4500' : '#259F46' }} />
+                            <span style={{ flex: 1, fontSize: '12px', color: '#262E3A' }}>{h.licitacoes_habilitacao_nome}</span>
+                            {h.licitacoes_habilitacao_data_validade && <span style={{ fontSize: '11px', color: vencido ? '#FF4500' : '#9B9B9B' }}>{formatDate(h.licitacoes_habilitacao_data_validade)}</span>}
+                            <button onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
+                              <Trash2 className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                <button onClick={addHabilitacao} disabled={saving || !nome.trim()}
+                  style={{ width: '100%', backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', opacity: saving || !nome.trim() ? 0.6 : 1 }}>
+                  {saving ? 'Salvando...' : 'Salvar'}
+                </button>
+              </>
+            ) : (
+              /* Tab: Usar existente */
+              <div>
+                <p style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '12px' }}>
+                  Selecione um documento já cadastrado para vincular a esta licitação.
+                </p>
+
+                {/* Search */}
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 12px', backgroundColor: '#fff', marginBottom: '14px' }}>
+                  <Search className="h-4 w-4 shrink-0" style={{ color: '#9B9B9B', marginRight: '8px' }} />
+                  <input type="text" placeholder="Buscar documento..." value={searchExist} onChange={e => setSearchExist(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '10px 0', backgroundColor: 'transparent' }} />
+                </div>
+
+                {todosDocsUsuario.length === 0 ? (
+                  <p style={{ color: '#9B9B9B', fontSize: '13px', textAlign: 'center', padding: '24px 0' }}>Nenhum documento cadastrado ainda.</p>
+                ) : (
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', maxHeight: '320px', overflowY: 'auto' }}>
+                    {todosDocsUsuario
+                      .filter(d => d.licitacoes_habilitacao_nome.toLowerCase().includes(searchExist.toLowerCase()))
+                      .map(d => {
+                        const vencido = d.licitacoes_habilitacao_data_validade ? new Date(d.licitacoes_habilitacao_data_validade) < new Date() : false;
+                        const jaVinculado = habilitacoes.some(h => h.licitacoes_habilitacao_nome === d.licitacoes_habilitacao_nome);
+                        return (
+                          <div key={d.licitacoes_habilitacao_id} className="flex items-center gap-3" style={{ backgroundColor: jaVinculado ? '#F0FAF4' : '#F9F9F9', borderRadius: '8px', padding: '10px 14px', border: `1px solid ${jaVinculado ? '#B8E0C4' : '#E8E8E8'}` }}>
+                            <ShieldCheck className="h-4 w-4 shrink-0" style={{ color: vencido ? '#FF4500' : '#259F46' }} />
+                            <div style={{ flex: 1, minWidth: 0 }}>
+                              <div style={{ fontSize: '13px', fontWeight: 600, color: '#262E3A' }}>{d.licitacoes_habilitacao_nome}</div>
+                              {d.licitacoes_habilitacao_data_validade && (
+                                <div style={{ fontSize: '11px', color: vencido ? '#FF4500' : '#9B9B9B' }}>
+                                  Validade: {formatDate(d.licitacoes_habilitacao_data_validade)} {vencido ? '— VENCIDO' : ''}
+                                </div>
+                              )}
                             </div>
-                          </td>
-                        </tr>
-                      );
-                    })}
-                  </tbody>
-                </table>
+                            {jaVinculado ? (
+                              <span style={{ fontSize: '11px', color: '#259F46', fontWeight: 700, whiteSpace: 'nowrap' }}>✓ Vinculado</span>
+                            ) : (
+                              <button
+                                onClick={() => vincularExistente(d.licitacoes_habilitacao_id)}
+                                disabled={vinculando === d.licitacoes_habilitacao_id}
+                                style={{ backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '6px', padding: '6px 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                                {vinculando === d.licitacoes_habilitacao_id ? '...' : '+ Vincular'}
+                              </button>
+                            )}
+                          </div>
+                        );
+                      })
+                    }
+                  </div>
+                )}
               </div>
             )}
-
-            {/* Salvar */}
-            <button
-              onClick={addHabilitacao}
-              disabled={saving || !nome.trim()}
-              style={{ width: '100%', backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', opacity: saving || !nome.trim() ? 0.6 : 1 }}
-            >
-              {saving ? 'Salvando...' : 'Salvar'}
-            </button>
           </div>
         </div>
       )}
