@@ -552,13 +552,12 @@ export default function TarefasPage() {
   const emAtraso = tarefas.filter(t => isOverdue(t.licitacoes_tarefa_prazo, t.licitacoes_tarefa_status));
 
   const cardStyle = (borderColor: string, bgColor: string): React.CSSProperties => ({
-    backgroundColor: '#fff',
+    backgroundColor: bgColor,
     border: `2px solid ${borderColor}`,
     borderRadius: '8px',
     padding: '16px 20px',
     flex: 1,
     minWidth: '140px',
-    backgroundColor: bgColor,
   });
 
   return (
