@@ -16,6 +16,7 @@ export interface Licitacao {
   situacaoCompraNome: string;
   situacaoCompraId: number;
   dataPublicacaoPncp: string;
+  dataAtualizacaoPncp?: string | null;
   dataAberturaProposta: string | null;
   dataEncerramentoProposta: string | null;
   linkSistemaOrigem: string | null;

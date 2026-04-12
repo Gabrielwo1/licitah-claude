@@ -1,16 +1,13 @@
 'use client';
 
 import { useState } from 'react';
-import { Search, ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
 import { todayISO, sevenDaysAgoISO } from '@/lib/utils';
 
 const MODALIDADES = [
-  { value: 'all', label: 'Todas as modalidades' },
+  { value: '', label: 'Selecione um opção' },
   { value: '7', label: 'Pregão Eletrônico' },
   { value: '8', label: 'Pregão Presencial' },
   { value: '5', label: 'Concorrência Eletrônica' },
@@ -26,7 +23,7 @@ const MODALIDADES = [
 ];
 
 const UFS = [
-  { value: 'all', label: 'Todos os estados' },
+  { value: '', label: 'Selecione um opção' },
   { value: 'AC', label: 'Acre' }, { value: 'AL', label: 'Alagoas' },
   { value: 'AM', label: 'Amazonas' }, { value: 'AP', label: 'Amapá' },
   { value: 'BA', label: 'Bahia' }, { value: 'CE', label: 'Ceará' },
@@ -44,16 +41,16 @@ const UFS = [
 ];
 
 const SITUACOES = [
-  { value: 'all', label: 'Todos' },
-  { value: 'Divulgada no PNCP', label: 'Divulgada no PNCP' },
-  { value: 'Aberta', label: 'Aberta' },
-  { value: 'Encerrada', label: 'Encerrada' },
-  { value: 'Suspensa', label: 'Suspensa' },
-  { value: 'Cancelada', label: 'Cancelada' },
+  { value: '', label: 'Selecione uma situação' },
+  { value: 'divulgada', label: 'Divulgada no PNCP' },
+  { value: 'aberta', label: 'Aberta' },
+  { value: 'encerrada', label: 'Encerrada' },
+  { value: 'suspensa', label: 'Suspensa' },
+  { value: 'cancelada', label: 'Cancelada' },
 ];
 
 const ESFERAS = [
-  { value: 'all', label: 'Todos' },
+  { value: '', label: 'Selecione um opção' },
   { value: 'federal', label: 'Federal' },
   { value: 'estadual', label: 'Estadual' },
   { value: 'municipal', label: 'Municipal' },
@@ -61,21 +58,62 @@ const ESFERAS = [
 
 const PAGE_SIZE = 20;
 
-function labelStyle(): React.CSSProperties {
-  return { fontSize: '14px', fontWeight: 600, color: '#262E3A', marginBottom: '6px', display: 'block' };
-}
+const fieldLabel: React.CSSProperties = {
+  display: 'block',
+  fontSize: '13px',
+  fontWeight: 600,
+  color: '#262E3A',
+  marginBottom: '4px',
+};
+
+const inputStyle: React.CSSProperties = {
+  width: '100%',
+  height: '34px',
+  border: '1px solid #D3D3D3',
+  borderRadius: '5px',
+  fontSize: '13px',
+  padding: '0 9px',
+  color: '#262E3A',
+  backgroundColor: '#fff',
+  outline: 'none',
+  appearance: 'none',
+  boxSizing: 'border-box',
+};
+
+const selectStyle: React.CSSProperties = {
+  ...inputStyle,
+  backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%237B7B7B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+  backgroundRepeat: 'no-repeat',
+  backgroundPosition: 'right 8px center',
+  paddingRight: '28px',
+  cursor: 'pointer',
+};
+
+const divider: React.CSSProperties = {
+  border: 'none',
+  borderTop: '1px solid #ECECEC',
+  margin: '12px 0',
+};
 
 export default function LicitacoesPage() {
   const [busca, setBusca] = useState('');
-  const [modalidade, setModalidade] = useState('7');
-  const [uf, setUf] = useState('all');
-  const [cidade, setCidade] = useState('');
-  const [situacao, setSituacao] = useState('all');
-  const [dataAberturaInicio, setDataAberturaInicio] = useState(sevenDaysAgoISO());
-  const [dataAberturaFim, setDataAberturaFim] = useState(todayISO());
-  const [numeroProcesso, setNumeroProcesso] = useState('');
-  const [esfera, setEsfera] = useState('all');
   const [buscaExata, setBuscaExata] = useState(false);
+  const [uf, setUf] = useState('');
+  const [cidade, setCidade] = useState('');
+  const [modalidade, setModalidade] = useState('7');
+  const [dataAberturaInicio, setDataAberturaInicio] = useState('');
+  const [dataAberturaFim, setDataAberturaFim] = useState('');
+  const [nConciliacao, setNConciliacao] = useState('');
+  const [codigoOrgao, setCodigoOrgao] = useState('');
+  const [esfera, setEsfera] = useState('');
+  const [nProcesso, setNProcesso] = useState('');
+  const [situacao, setSituacao] = useState('');
+  const [orgao, setOrgao] = useState('');
+  const [itens, setItens] = useState('');
+  const [concAto, setConcAto] = useState(false);
+  const [concAviso, setConcAviso] = useState(false);
+  const [concEdital, setConcEdital] = useState(false);
+
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
   const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
@@ -86,13 +124,19 @@ export default function LicitacoesPage() {
   const [apiError, setApiError] = useState('');
 
   // Client-side situação filter
-  const licitacoes = situacao === 'all'
-    ? allLicitacoes
-    : allLicitacoes.filter((l) => {
+  const licitacoes = situacao
+    ? allLicitacoes.filter((l) => {
         const nome = l.situacaoCompraNome?.toLowerCase() || '';
-        const filter = situacao.toLowerCase();
-        return nome.includes(filter);
-      });
+        return nome.includes(situacao.toLowerCase());
+      })
+    : allLicitacoes;
+
+  // Client-side cidade filter
+  const filtered = cidade
+    ? licitacoes.filter((l) =>
+        l.unidadeOrgao?.municipioNome?.toLowerCase().includes(cidade.toLowerCase())
+      )
+    : licitacoes;
 
   async function fetchLicitacoes(page = 1) {
     setLoading(true);
@@ -101,11 +145,17 @@ export default function LicitacoesPage() {
       const params = new URLSearchParams();
       params.set('pagina', String(page));
       params.set('tamanhoPagina', String(PAGE_SIZE));
-      params.set('dataInicial', dataAberturaInicio);
-      params.set('dataFinal', dataAberturaFim);
-      if (modalidade !== 'all') params.set('modalidade', modalidade);
-      if (uf !== 'all') params.set('uf', uf);
+
+      // Dates — use default range if not set
+      const dataIni = dataAberturaInicio || sevenDaysAgoISO();
+      const dataFim = dataAberturaFim || todayISO();
+      params.set('dataInicial', dataIni);
+      params.set('dataFinal', dataFim);
+
+      if (modalidade) params.set('modalidade', modalidade);
+      if (uf) params.set('uf', uf);
       if (busca.trim()) params.set('busca', busca.trim());
+      if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
 
       const res = await fetch(`/api/licitacoes?${params.toString()}`);
       const json = await res.json();
@@ -134,307 +184,483 @@ export default function LicitacoesPage() {
     fetchLicitacoes(1);
   }
 
-  const inputStyle: React.CSSProperties = {
-    height: '42px',
-    border: '1px solid #D3D3D3',
-    borderRadius: '6px',
-    fontSize: '14px',
-    width: '100%',
-    padding: '0 12px',
-    color: '#262E3A',
-    backgroundColor: '#fff',
-    outline: 'none',
-  };
-
   return (
-    <div className="space-y-5">
-      <h1 className="text-xl font-bold" style={{ color: '#262E3A' }}>
-        Licitações
-      </h1>
+    <div className="flex gap-5 min-h-full" style={{ alignItems: 'flex-start' }}>
 
-      {/* Search form */}
-      <form
-        onSubmit={handleSearch}
-        className="bg-white p-5 space-y-4"
-        style={{ borderRadius: '10px', boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
+      {/* ── LEFT FILTER SIDEBAR ── */}
+      <aside
+        className="shrink-0"
+        style={{ width: '220px', minWidth: '220px' }}
       >
-        {/* Row 1: Objeto full width */}
-        <div>
-          <label style={labelStyle()}>Objeto / Busca</label>
-          <div className="relative">
-            <Search
-              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4"
-              style={{ color: '#7B7B7B' }}
-            />
-            <input
-              type="text"
-              placeholder="Buscar por objeto, órgão, palavras-chave..."
-              value={busca}
-              onChange={(e) => setBusca(e.target.value)}
-              style={{ ...inputStyle, paddingLeft: '36px' }}
-            />
-          </div>
-        </div>
-
-        {/* Row 2: Modalidade | Estado | Cidade | Situação */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label style={labelStyle()}>Modalidade</label>
-            <Select value={modalidade} onValueChange={setModalidade}>
-              <SelectTrigger style={{ height: '42px', borderColor: '#D3D3D3' }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {MODALIDADES.map((m) => (
-                  <SelectItem key={m.value} value={m.value}>{m.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label style={labelStyle()}>Estado</label>
-            <Select value={uf} onValueChange={setUf}>
-              <SelectTrigger style={{ height: '42px', borderColor: '#D3D3D3' }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {UFS.map((u) => (
-                  <SelectItem key={u.value} value={u.value}>{u.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-          <div>
-            <label style={labelStyle()}>Cidade</label>
-            <input
-              type="text"
-              placeholder="Ex: São Paulo"
-              value={cidade}
-              onChange={(e) => setCidade(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle()}>Situação</label>
-            <Select value={situacao} onValueChange={setSituacao}>
-              <SelectTrigger style={{ height: '42px', borderColor: '#D3D3D3' }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {SITUACOES.map((s) => (
-                  <SelectItem key={s.value} value={s.value}>{s.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Row 3: Data Abertura De | Data Abertura Até | Nº Processo | Esfera */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          <div>
-            <label style={labelStyle()}>Abertura De</label>
-            <input
-              type="date"
-              value={dataAberturaInicio}
-              onChange={(e) => setDataAberturaInicio(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle()}>Abertura Até</label>
-            <input
-              type="date"
-              value={dataAberturaFim}
-              onChange={(e) => setDataAberturaFim(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle()}>Nº Processo</label>
-            <input
-              type="text"
-              placeholder="Ex: 001/2024"
-              value={numeroProcesso}
-              onChange={(e) => setNumeroProcesso(e.target.value)}
-              style={inputStyle}
-            />
-          </div>
-          <div>
-            <label style={labelStyle()}>Esfera</label>
-            <Select value={esfera} onValueChange={setEsfera}>
-              <SelectTrigger style={{ height: '42px', borderColor: '#D3D3D3' }}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                {ESFERAS.map((e) => (
-                  <SelectItem key={e.value} value={e.value}>{e.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-        </div>
-
-        {/* Busca exata checkbox */}
-        <div className="flex items-center gap-2">
-          <input
-            id="busca-exata"
-            type="checkbox"
-            checked={buscaExata}
-            onChange={(e) => setBuscaExata(e.target.checked)}
-            className="w-4 h-4 rounded"
-            style={{ accentColor: '#262E3A' }}
-          />
-          <label
-            htmlFor="busca-exata"
-            style={{ fontSize: '14px', fontWeight: 600, color: '#262E3A', cursor: 'pointer' }}
-          >
-            Busca exata (correspondência exata do termo)
-          </label>
-        </div>
-
-        {/* Search button full width */}
-        <Button
-          type="submit"
-          loading={loading}
-          variant="padrao"
-          className="w-full"
-          style={{ height: '50px', fontSize: '15px' }}
-        >
-          <Search className="h-4 w-4" />
-          Buscar Licitações
-        </Button>
-      </form>
-
-      {/* Results */}
-      {loading && (
-        <div className="flex flex-col items-center justify-center py-16 gap-3">
-          <Loader2 className="h-10 w-10 animate-spin" style={{ color: '#0a1175' }} />
-          <p className="text-sm" style={{ color: '#7B7B7B' }}>
-            Consultando API do governo federal...
-          </p>
-        </div>
-      )}
-
-      {apiError && !loading && (
-        <div
-          className="flex items-start gap-3 p-4 rounded-lg text-sm"
-          style={{ backgroundColor: '#FFF0F0', border: '1px solid #FFCDD2', color: '#C62828' }}
-        >
-          <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
-          <div>
-            <p className="font-semibold">Não foi possível carregar as licitações</p>
-            <p className="mt-0.5">{apiError}</p>
-          </div>
-        </div>
-      )}
-
-      {!loading && !searched && !apiError && (
-        <div className="text-center py-16" style={{ color: '#7B7B7B' }}>
-          <Search className="h-12 w-12 mx-auto mb-4 opacity-30" />
-          <p className="text-lg font-semibold" style={{ color: '#262E3A' }}>
-            Pronto para buscar
-          </p>
-          <p className="text-sm mt-1">Preencha os filtros e clique em Buscar Licitações</p>
-          <Button
-            className="mt-4"
-            variant="padrao"
-            onClick={() => fetchLicitacoes(1)}
-          >
-            Ver últimos 7 dias — Pregão Eletrônico
-          </Button>
-        </div>
-      )}
-
-      {!loading && searched && !apiError && licitacoes.length === 0 && (
-        <div className="text-center py-12" style={{ color: '#7B7B7B' }}>
-          <p className="font-semibold">Nenhuma licitação encontrada</p>
-          <p className="text-sm mt-1">Tente ajustar os filtros ou ampliar o período</p>
-        </div>
-      )}
-
-      {!loading && licitacoes.length > 0 && (
-        <>
+        <form onSubmit={handleSearch}>
           <div
-            className="flex items-center justify-between text-sm"
-            style={{ color: '#7B7B7B' }}
+            className="bg-white"
+            style={{
+              borderRadius: '8px',
+              border: '1px solid #E8E8E8',
+              boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+              padding: '16px',
+            }}
           >
-            <span>
-              {total > 0
-                ? `${total.toLocaleString('pt-BR')} resultado(s)`
-                : `${licitacoes.length} resultado(s)`}
-              {totalPaginas > 1 && ` — Página ${pagina} de ${totalPaginas}`}
-            </span>
-          </div>
 
-          <div className="space-y-3">
-            {licitacoes.map((l) => (
-              <LicitacaoCard key={l.numeroControlePNCP} licitacao={l} />
-            ))}
-          </div>
-
-          {/* Pagination */}
-          <div className="flex items-center justify-center gap-3 pt-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchLicitacoes(pagina - 1)}
-              disabled={pagina <= 1}
-            >
-              <ChevronLeft className="h-4 w-4" />
-              Anterior
-            </Button>
-
-            <div className="flex items-center gap-1">
-              {pagina > 2 && (
-                <button
-                  onClick={() => fetchLicitacoes(1)}
-                  className="w-8 h-8 rounded text-sm font-semibold"
-                  style={{ color: '#7B7B7B' }}
-                >
-                  1
-                </button>
-              )}
-              {pagina > 3 && (
-                <span className="text-sm" style={{ color: '#7B7B7B' }}>...</span>
-              )}
-              {pagina > 1 && (
-                <button
-                  onClick={() => fetchLicitacoes(pagina - 1)}
-                  className="w-8 h-8 rounded text-sm font-semibold"
-                  style={{ color: '#7B7B7B' }}
-                >
-                  {pagina - 1}
-                </button>
-              )}
-              <button
-                className="w-8 h-8 rounded text-sm font-bold text-white"
-                style={{ backgroundColor: '#0a1175' }}
-              >
-                {pagina}
-              </button>
-              {(hasMore || pagina < totalPaginas) && (
-                <button
-                  onClick={() => fetchLicitacoes(pagina + 1)}
-                  className="w-8 h-8 rounded text-sm font-semibold"
-                  style={{ color: '#7B7B7B' }}
-                >
-                  {pagina + 1}
-                </button>
-              )}
+            {/* Objeto */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Objeto</label>
+              <input
+                type="text"
+                value={busca}
+                onChange={(e) => setBusca(e.target.value)}
+                style={inputStyle}
+                placeholder=""
+              />
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => fetchLicitacoes(pagina + 1)}
-              disabled={!hasMore && pagina >= totalPaginas}
+            {/* Busca Exata */}
+            <div style={{ marginBottom: '12px' }}>
+              <label
+                className="flex items-center gap-2 cursor-pointer"
+                style={{ fontSize: '13px', color: '#262E3A' }}
+              >
+                <input
+                  type="checkbox"
+                  checked={buscaExata}
+                  onChange={(e) => setBuscaExata(e.target.checked)}
+                  style={{ accentColor: '#262E3A', width: '14px', height: '14px' }}
+                />
+                Busca Exata
+              </label>
+            </div>
+
+            <hr style={divider} />
+
+            {/* Estado */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Estado</label>
+              <select
+                value={uf}
+                onChange={(e) => setUf(e.target.value)}
+                style={selectStyle}
+              >
+                {UFS.map((u) => (
+                  <option key={u.value} value={u.value}>{u.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Cidade */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Cidade</label>
+              <input
+                type="text"
+                value={cidade}
+                onChange={(e) => setCidade(e.target.value)}
+                style={inputStyle}
+                placeholder={uf ? '' : 'Defina o estado'}
+              />
+            </div>
+
+            <hr style={divider} />
+
+            {/* Modalidades */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Modalidades</label>
+              <select
+                value={modalidade}
+                onChange={(e) => setModalidade(e.target.value)}
+                style={selectStyle}
+              >
+                {MODALIDADES.map((m) => (
+                  <option key={m.value} value={m.value}>{m.label}</option>
+                ))}
+              </select>
+            </div>
+
+            <hr style={divider} />
+
+            {/* Data Abertura */}
+            <div style={{ marginBottom: '8px' }}>
+              <label style={fieldLabel}>Data Abertura</label>
+              <div style={{ marginBottom: '6px' }}>
+                <label style={{ ...fieldLabel, fontWeight: 400, fontSize: '12px', color: '#7B7B7B', marginBottom: '3px' }}>
+                  De:
+                </label>
+                <input
+                  type="date"
+                  value={dataAberturaInicio}
+                  onChange={(e) => setDataAberturaInicio(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+              <div>
+                <label style={{ ...fieldLabel, fontWeight: 400, fontSize: '12px', color: '#7B7B7B', marginBottom: '3px' }}>
+                  Até:
+                </label>
+                <input
+                  type="date"
+                  value={dataAberturaFim}
+                  onChange={(e) => setDataAberturaFim(e.target.value)}
+                  style={inputStyle}
+                />
+              </div>
+            </div>
+
+            <hr style={divider} />
+
+            {/* N° Conciliação */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>N° Conciliação</label>
+              <input
+                type="text"
+                value={nConciliacao}
+                onChange={(e) => setNConciliacao(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Código do orgão */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Código do orgão</label>
+              <input
+                type="text"
+                value={codigoOrgao}
+                onChange={(e) => setCodigoOrgao(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Esfera */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Esfera</label>
+              <select
+                value={esfera}
+                onChange={(e) => setEsfera(e.target.value)}
+                style={selectStyle}
+              >
+                {ESFERAS.map((ef) => (
+                  <option key={ef.value} value={ef.value}>{ef.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* N° processo */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>N° processo</label>
+              <input
+                type="text"
+                value={nProcesso}
+                onChange={(e) => setNProcesso(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Situação */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Situação</label>
+              <select
+                value={situacao}
+                onChange={(e) => setSituacao(e.target.value)}
+                style={selectStyle}
+              >
+                {SITUACOES.map((s) => (
+                  <option key={s.value} value={s.value}>{s.label}</option>
+                ))}
+              </select>
+            </div>
+
+            {/* Órgão */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Órgão</label>
+              <input
+                type="text"
+                value={orgao}
+                onChange={(e) => setOrgao(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            {/* Itens */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Itens</label>
+              <input
+                type="text"
+                value={itens}
+                onChange={(e) => setItens(e.target.value)}
+                style={inputStyle}
+              />
+            </div>
+
+            <hr style={divider} />
+
+            {/* Concorrências */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Concorrências</label>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+                <label className="flex items-start gap-2 cursor-pointer" style={{ fontSize: '12px', color: '#262E3A', lineHeight: '1.4' }}>
+                  <input
+                    type="checkbox"
+                    checked={concAto}
+                    onChange={(e) => setConcAto(e.target.checked)}
+                    style={{ accentColor: '#262E3A', width: '13px', height: '13px', marginTop: '2px', flexShrink: 0 }}
+                  />
+                  Ato que autoriza a Contratação Direta
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer" style={{ fontSize: '12px', color: '#262E3A', lineHeight: '1.4' }}>
+                  <input
+                    type="checkbox"
+                    checked={concAviso}
+                    onChange={(e) => setConcAviso(e.target.checked)}
+                    style={{ accentColor: '#262E3A', width: '13px', height: '13px', marginTop: '2px', flexShrink: 0 }}
+                  />
+                  Aviso de Contratação Direta
+                </label>
+                <label className="flex items-start gap-2 cursor-pointer" style={{ fontSize: '12px', color: '#262E3A', lineHeight: '1.4' }}>
+                  <input
+                    type="checkbox"
+                    checked={concEdital}
+                    onChange={(e) => setConcEdital(e.target.checked)}
+                    style={{ accentColor: '#262E3A', width: '13px', height: '13px', marginTop: '2px', flexShrink: 0 }}
+                  />
+                  Edital
+                </label>
+              </div>
+            </div>
+
+            <hr style={divider} />
+
+            {/* Oportunidades tag */}
+            <div style={{ marginBottom: '16px' }}>
+              <label style={fieldLabel}>Oportunidades</label>
+              <OportunidadesTags />
+            </div>
+
+            {/* Procurar button */}
+            <button
+              type="submit"
+              disabled={loading}
+              style={{
+                width: '100%',
+                height: '42px',
+                backgroundColor: loading ? '#555' : '#262E3A',
+                color: '#fff',
+                fontSize: '14px',
+                fontWeight: 700,
+                borderRadius: '6px',
+                border: 'none',
+                cursor: loading ? 'not-allowed' : 'pointer',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: '6px',
+                transition: 'background-color 0.15s',
+              }}
+              onMouseEnter={e => { if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = '#1a2029'; }}
+              onMouseLeave={e => { if (!loading) (e.currentTarget as HTMLElement).style.backgroundColor = '#262E3A'; }}
             >
-              Próxima
-              <ChevronRight className="h-4 w-4" />
-            </Button>
+              {loading && (
+                <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24" fill="none">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                </svg>
+              )}
+              {loading ? 'Buscando...' : 'Procurar'}
+            </button>
           </div>
-        </>
-      )}
+        </form>
+      </aside>
+
+      {/* ── RIGHT RESULTS AREA ── */}
+      <main className="flex-1 min-w-0">
+
+        {/* Loading */}
+        {loading && (
+          <div className="flex flex-col items-center justify-center py-20 gap-3">
+            <Loader2 className="h-10 w-10 animate-spin" style={{ color: '#0a1175' }} />
+            <p style={{ fontSize: '13px', color: '#7B7B7B' }}>
+              Consultando API do governo federal...
+            </p>
+          </div>
+        )}
+
+        {/* Error */}
+        {apiError && !loading && (
+          <div
+            className="flex items-start gap-3 p-4 rounded-lg text-sm"
+            style={{ backgroundColor: '#FFF0F0', border: '1px solid #FFCDD2', color: '#C62828' }}
+          >
+            <AlertCircle className="h-5 w-5 shrink-0 mt-0.5" />
+            <div>
+              <p className="font-semibold">Não foi possível carregar as licitações</p>
+              <p className="mt-0.5">{apiError}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Empty state */}
+        {!loading && !searched && !apiError && (
+          <div
+            className="flex flex-col items-center justify-center py-24"
+            style={{ color: '#7B7B7B' }}
+          >
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CFCFCF" strokeWidth="1.5" className="mb-4">
+              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+            </svg>
+            <p style={{ fontWeight: 600, fontSize: '15px', color: '#262E3A' }}>
+              Pronto para buscar
+            </p>
+            <p style={{ fontSize: '13px', marginTop: '4px' }}>
+              Preencha os filtros e clique em Procurar
+            </p>
+          </div>
+        )}
+
+        {/* No results */}
+        {!loading && searched && !apiError && filtered.length === 0 && (
+          <div className="text-center py-16" style={{ color: '#7B7B7B' }}>
+            <p style={{ fontWeight: 600 }}>Nenhuma licitação encontrada</p>
+            <p style={{ fontSize: '13px', marginTop: '4px' }}>
+              Tente ajustar os filtros ou ampliar o período
+            </p>
+          </div>
+        )}
+
+        {/* Results */}
+        {!loading && filtered.length > 0 && (
+          <>
+            {/* Result count */}
+            <div
+              style={{
+                fontSize: '13px',
+                color: '#7B7B7B',
+                marginBottom: '12px',
+                fontWeight: 500,
+              }}
+            >
+              {total > 0
+                ? `${total.toLocaleString('pt-BR')} resultado(s)`
+                : `${filtered.length} resultado(s)`}
+              {totalPaginas > 1 && ` — Página ${pagina} de ${totalPaginas}`}
+            </div>
+
+            {/* Cards */}
+            {filtered.map((l) => (
+              <LicitacaoCard key={l.numeroControlePNCP} licitacao={l} />
+            ))}
+
+            {/* Pagination */}
+            <div className="flex items-center justify-center gap-1 pt-4 pb-2">
+              <PaginationBtn
+                onClick={() => fetchLicitacoes(pagina - 1)}
+                disabled={pagina <= 1}
+                label="←"
+              />
+
+              {pagina > 2 && (
+                <PaginationBtn onClick={() => fetchLicitacoes(1)} label="1" />
+              )}
+              {pagina > 3 && (
+                <span style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
+              )}
+              {pagina > 1 && (
+                <PaginationBtn onClick={() => fetchLicitacoes(pagina - 1)} label={String(pagina - 1)} />
+              )}
+              <PaginationBtn label={String(pagina)} active />
+              {(hasMore || pagina < totalPaginas) && (
+                <PaginationBtn onClick={() => fetchLicitacoes(pagina + 1)} label={String(pagina + 1)} />
+              )}
+              {totalPaginas > pagina + 2 && (
+                <span style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
+              )}
+              {totalPaginas > pagina + 1 && (
+                <PaginationBtn onClick={() => fetchLicitacoes(totalPaginas)} label={String(totalPaginas)} />
+              )}
+
+              <PaginationBtn
+                onClick={() => fetchLicitacoes(pagina + 1)}
+                disabled={!hasMore && pagina >= totalPaginas}
+                label="→"
+              />
+            </div>
+          </>
+        )}
+      </main>
+    </div>
+  );
+}
+
+function PaginationBtn({
+  label,
+  onClick,
+  disabled,
+  active,
+}: {
+  label: string;
+  onClick?: () => void;
+  disabled?: boolean;
+  active?: boolean;
+}) {
+  return (
+    <button
+      onClick={onClick}
+      disabled={disabled}
+      style={{
+        minWidth: '32px',
+        height: '32px',
+        padding: '0 8px',
+        borderRadius: '5px',
+        border: active ? 'none' : '1px solid #E0E0E0',
+        backgroundColor: active ? '#0a1175' : disabled ? '#F5F5F5' : '#fff',
+        color: active ? '#fff' : disabled ? '#CFCFCF' : '#262E3A',
+        fontSize: '13px',
+        fontWeight: active ? 700 : 500,
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        transition: 'all 0.15s',
+      }}
+      onMouseEnter={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.backgroundColor = '#F0F0F0'; }}
+      onMouseLeave={e => { if (!disabled && !active) (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; }}
+    >
+      {label}
+    </button>
+  );
+}
+
+// Shows user's opportunity keywords as tags
+function OportunidadesTags() {
+  const [tags, setTags] = useState<string[]>([]);
+
+  // Fetch once on mount
+  useState(() => {
+    fetch('/api/oportunidades')
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        const keywords = data
+          .map(o => o.licitacoes_oportunidade_tagmento)
+          .filter(Boolean)
+          .slice(0, 5);
+        setTags(keywords);
+      })
+      .catch(() => {});
+  });
+
+  if (tags.length === 0) return null;
+
+  return (
+    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+      {tags.map((tag, i) => (
+        <span
+          key={i}
+          style={{
+            fontSize: '11px',
+            padding: '2px 8px',
+            borderRadius: '4px',
+            backgroundColor: '#F1F1FC',
+            color: '#0a1175',
+            fontWeight: 600,
+            cursor: 'default',
+          }}
+        >
+          {tag}
+        </span>
+      ))}
     </div>
   );
 }

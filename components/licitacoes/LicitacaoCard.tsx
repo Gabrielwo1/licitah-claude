@@ -1,33 +1,32 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Calendar, Building2, Star, ExternalLink, Plus } from 'lucide-react';
-import { Badge } from '@/components/ui/badge';
-import { Button } from '@/components/ui/button';
-import { formatCurrency, formatDate } from '@/lib/utils';
+import { Heart, Settings, ExternalLink, List } from 'lucide-react';
+import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
 import { useState } from 'react';
-
-type StatusVariant = 'aberto' | 'fechado' | 'publicado' | 'suspensa' | 'cancelada' | 'default';
-
-function getStatusVariant(situacaoId: number, nome: string): StatusVariant {
-  const lower = nome?.toLowerCase() || '';
-  if (lower.includes('divulg') || lower.includes('aberta') || lower.includes('aberto')) return 'aberto';
-  if (lower.includes('encerr') || lower.includes('fechad')) return 'fechado';
-  if (lower.includes('publicad') || lower.includes('publicad')) return 'publicado';
-  if (lower.includes('suspens')) return 'suspensa';
-  if (lower.includes('cancel')) return 'cancelada';
-  // Fallback by ID
-  if (situacaoId === 1) return 'aberto';
-  if (situacaoId === 2) return 'fechado';
-  if (situacaoId === 3) return 'suspensa';
-  return 'default';
-}
 
 interface LicitacaoCardProps {
   licitacao: Licitacao;
   isFavorite?: boolean;
   onFavoriteToggle?: (id: string) => void;
+}
+
+function getSituacaoStyle(nome: string): React.CSSProperties {
+  const lower = nome?.toLowerCase() || '';
+  if (lower.includes('encerr') || lower.includes('fechad') || lower.includes('cancel')) {
+    return { backgroundColor: '#FF4500', color: '#fff' };
+  }
+  if (lower.includes('divulg') || lower.includes('aberta') || lower.includes('aberto')) {
+    return { backgroundColor: '#259F46', color: '#fff' };
+  }
+  if (lower.includes('suspens')) {
+    return { backgroundColor: '#FFA500', color: '#fff' };
+  }
+  if (lower.includes('publicad')) {
+    return { backgroundColor: '#FFD700', color: '#262E3A' };
+  }
+  return { backgroundColor: '#7B7B7B', color: '#fff' };
 }
 
 export function LicitacaoCard({
@@ -36,10 +35,12 @@ export function LicitacaoCard({
   onFavoriteToggle,
 }: LicitacaoCardProps) {
   const [fav, setFav] = useState(isFavorite);
-  const [loading, setLoading] = useState(false);
+  const [favLoading, setFavLoading] = useState(false);
 
-  async function toggleFavorite() {
-    setLoading(true);
+  async function toggleFavorite(e: React.MouseEvent) {
+    e.preventDefault();
+    e.stopPropagation();
+    setFavLoading(true);
     try {
       const res = await fetch('/api/favoritos', {
         method: 'POST',
@@ -52,140 +53,211 @@ export function LicitacaoCard({
       if (res.ok) {
         const data = await res.json();
         setFav(data.favorited);
-        onFavoriteToggle?.(licitacao.numeroControlePNCP);
+        if (!data.favorited) onFavoriteToggle?.(licitacao.numeroControlePNCP);
       }
     } finally {
-      setLoading(false);
+      setFavLoading(false);
     }
   }
 
   const detailHref = `/dashboard/licitacoes/${encodeURIComponent(licitacao.numeroControlePNCP)}`;
-  const statusVariant = getStatusVariant(licitacao.situacaoCompraId, licitacao.situacaoCompraNome);
+  const situacaoStyle = getSituacaoStyle(licitacao.situacaoCompraNome);
+
+  // Use dataAtualizacaoPncp if available, fallback to dataPublicacaoPncp
+  const updatedAt = (licitacao as any).dataAtualizacaoPncp || licitacao.dataPublicacaoPncp;
+
+  const hasDatas = licitacao.dataAberturaProposta || licitacao.dataEncerramentoProposta;
 
   return (
     <div
-      className="bg-white p-5 hover:shadow-md transition-shadow"
+      className="bg-white"
       style={{
-        borderRadius: '10px',
-        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+        borderRadius: '8px',
+        border: '1px solid #E8E8E8',
+        boxShadow: '0 1px 4px rgba(0,0,0,0.06)',
+        marginBottom: '10px',
+        overflow: 'hidden',
       }}
     >
-      {/* Header row */}
-      <div className="flex items-start justify-between gap-3 mb-3">
-        <div className="flex items-center gap-2 flex-wrap">
-          <Badge variant={statusVariant as any}>
-            {licitacao.situacaoCompraNome}
-          </Badge>
-          <Badge variant="outline" className="text-xs">
-            {licitacao.modalidadeNome}
-          </Badge>
-        </div>
-        {/* Favorite star */}
+      {/* Top row: heart + updated */}
+      <div
+        className="flex items-center justify-between px-4 pt-3 pb-2"
+      >
         <button
           onClick={toggleFavorite}
-          disabled={loading}
-          className="shrink-0 p-1 rounded transition-colors"
+          disabled={favLoading}
+          className="flex items-center justify-center w-7 h-7 rounded transition-all"
           title={fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
-          style={{ color: fav ? '#FF6600' : '#CFCFCF' }}
-          onMouseEnter={(e) => {
-            if (!fav) (e.currentTarget as HTMLElement).style.color = '#FF6600';
-          }}
-          onMouseLeave={(e) => {
-            if (!fav) (e.currentTarget as HTMLElement).style.color = '#CFCFCF';
+          style={{
+            border: `1.5px solid ${fav ? '#FF6600' : '#CFCFCF'}`,
+            backgroundColor: fav ? '#FFF5EE' : '#fff',
+            color: fav ? '#FF6600' : '#CFCFCF',
           }}
         >
-          <Star
-            className="h-5 w-5"
+          <Heart
+            className="h-3.5 w-3.5"
             fill={fav ? '#FF6600' : 'none'}
-            stroke={fav ? '#FF6600' : 'currentColor'}
+            stroke={fav ? '#FF6600' : '#CFCFCF'}
+            strokeWidth={2}
           />
         </button>
+        <span style={{ fontSize: '11px', color: '#9B9B9B' }}>
+          Atualizada em: {formatDateTime(updatedAt)}
+        </span>
       </div>
 
-      {/* Title */}
-      <h3
-        className="font-semibold text-sm leading-snug mb-3 line-clamp-2"
-        style={{ color: '#262E3A' }}
-        title={licitacao.objetoCompra}
-      >
-        {licitacao.objetoCompra}
-      </h3>
-
-      {/* Info grid */}
-      <div
-        className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs mb-3"
-        style={{ color: '#7B7B7B' }}
-      >
-        {/* Orgao */}
-        <div className="flex items-center gap-1.5">
-          <Building2 className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
-          <span className="truncate" title={licitacao.orgaoEntidade.razaoSocial}>
-            {licitacao.orgaoEntidade.razaoSocial}
+      {/* Card body */}
+      <div className="px-4 pb-4">
+        {/* Objeto */}
+        <div style={{ marginBottom: '8px' }}>
+          <span style={{ fontSize: '13px', color: '#262E3A', lineHeight: '1.5' }}>
+            <strong style={{ marginRight: '4px' }}>Objeto:</strong>
+            {licitacao.objetoCompra}
           </span>
         </div>
 
-        {/* Local */}
-        <div className="flex items-center gap-1.5">
-          <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
-          <span>
-            {licitacao.unidadeOrgao.municipioNome}, {licitacao.unidadeOrgao.ufSigla}
+        {/* Datas */}
+        {hasDatas && (
+          <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '6px' }}>
+            <strong style={{ color: '#262E3A' }}>Datas:</strong>
+            {licitacao.dataAberturaProposta && (
+              <span style={{ marginLeft: '6px' }}>
+                Abertura: {formatDateTime(licitacao.dataAberturaProposta)}
+              </span>
+            )}
+            {licitacao.dataEncerramentoProposta && (
+              <span style={{ marginLeft: '10px' }}>
+                Encerramento: {formatDateTime(licitacao.dataEncerramentoProposta)}
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* Número da Licitação */}
+        <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '4px' }}>
+          <strong style={{ color: '#262E3A' }}>Número da Licitação:</strong>
+          <span style={{ marginLeft: '6px' }}>{licitacao.sequencialCompra}</span>
+        </div>
+
+        {/* Órgão */}
+        <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '4px' }}>
+          <strong style={{ color: '#262E3A' }}>Órgão:</strong>
+          <span style={{ marginLeft: '6px' }}>{licitacao.orgaoEntidade?.razaoSocial}</span>
+        </div>
+
+        {/* Cidade */}
+        <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '10px' }}>
+          <strong style={{ color: '#262E3A' }}>Cidade:</strong>
+          <span style={{ marginLeft: '6px' }}>
+            {licitacao.unidadeOrgao?.municipioNome} - {licitacao.unidadeOrgao?.ufSigla}
           </span>
         </div>
 
-        {/* Abertura */}
-        {licitacao.dataAberturaProposta && (
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
-            <span>Abertura: {formatDate(licitacao.dataAberturaProposta)}</span>
-          </div>
-        )}
-
-        {/* Encerramento */}
-        {licitacao.dataEncerramentoProposta && (
-          <div className="flex items-center gap-1.5">
-            <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#FF6600' }} />
-            <span>Encerramento: {formatDate(licitacao.dataEncerramentoProposta)}</span>
-          </div>
-        )}
-      </div>
-
-      {/* Value */}
-      {licitacao.valorTotalEstimado && licitacao.valorTotalEstimado > 0 && (
-        <div
-          className="text-base font-bold mb-3"
-          style={{ color: '#0a1175' }}
-        >
-          {formatCurrency(licitacao.valorTotalEstimado)}
-        </div>
-      )}
-
-      {/* Actions */}
-      <div className="flex items-center gap-2 flex-wrap">
-        <Link href={detailHref}>
-          <Button size="sm" variant="padrao">
-            Ver detalhes
-          </Button>
-        </Link>
-
-        <Link href={`${detailHref}?criar_tarefa=1`}>
-          <Button size="sm" variant="orange-outline">
-            <Plus className="h-3.5 w-3.5" />
-            Criar tarefa
-          </Button>
-        </Link>
-
-        {licitacao.linkSistemaOrigem && (
-          <a
-            href={licitacao.linkSistemaOrigem}
-            target="_blank"
-            rel="noopener noreferrer"
+        {/* Situação + Valor */}
+        <div className="flex items-center gap-2 flex-wrap" style={{ marginBottom: '12px' }}>
+          <span
+            style={{
+              ...situacaoStyle,
+              fontSize: '12px',
+              fontWeight: 700,
+              padding: '3px 10px',
+              borderRadius: '4px',
+              display: 'inline-block',
+            }}
           >
-            <Button size="sm" variant="outline">
-              <ExternalLink className="h-3.5 w-3.5" />
-              Portal
-            </Button>
-          </a>
-        )}
+            {licitacao.situacaoCompraNome || 'Não informada'}
+          </span>
+
+          {licitacao.valorTotalEstimado && licitacao.valorTotalEstimado > 0 && (
+            <span
+              style={{
+                backgroundColor: '#259F46',
+                color: '#fff',
+                fontSize: '12px',
+                fontWeight: 700,
+                padding: '3px 10px',
+                borderRadius: '4px',
+                display: 'inline-block',
+              }}
+            >
+              Valor estimado: {formatCurrency(licitacao.valorTotalEstimado)}
+            </span>
+          )}
+        </div>
+
+        {/* Action buttons */}
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Gerenciar licitação */}
+          <Link href={detailHref}>
+            <button
+              className="flex items-center gap-1.5 font-semibold transition-colors"
+              style={{
+                backgroundColor: '#262E3A',
+                color: '#fff',
+                fontSize: '13px',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#1a2029')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#262E3A')}
+            >
+              <Settings className="h-3.5 w-3.5" />
+              Gerenciar licitação
+            </button>
+          </Link>
+
+          {/* Consultar edital */}
+          {licitacao.linkSistemaOrigem && (
+            <a href={licitacao.linkSistemaOrigem} target="_blank" rel="noopener noreferrer">
+              <button
+                className="flex items-center gap-1.5 font-semibold transition-colors"
+                style={{
+                  backgroundColor: 'transparent',
+                  color: '#FF6600',
+                  fontSize: '13px',
+                  padding: '6px 14px',
+                  borderRadius: '6px',
+                  border: '1.5px solid #FF6600',
+                  cursor: 'pointer',
+                }}
+                onMouseEnter={e => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor = '#FF6600';
+                  (e.currentTarget as HTMLElement).style.color = '#fff';
+                }}
+                onMouseLeave={e => {
+                  (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent';
+                  (e.currentTarget as HTMLElement).style.color = '#FF6600';
+                }}
+              >
+                <ExternalLink className="h-3.5 w-3.5" />
+                Consultar edital
+              </button>
+            </a>
+          )}
+
+          {/* Itens */}
+          <Link href={`${detailHref}#itens`}>
+            <button
+              className="flex items-center gap-1.5 font-semibold transition-colors"
+              style={{
+                backgroundColor: '#FF6600',
+                color: '#fff',
+                fontSize: '13px',
+                padding: '7px 14px',
+                borderRadius: '6px',
+                border: 'none',
+                cursor: 'pointer',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#e05a00')}
+              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FF6600')}
+            >
+              <List className="h-3.5 w-3.5" />
+              Itens
+            </button>
+          </Link>
+        </div>
       </div>
     </div>
   );
