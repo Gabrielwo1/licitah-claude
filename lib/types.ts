@@ -62,8 +62,12 @@ export interface Tarefa {
   licitacoes_tarefa_nome: string;
   licitacoes_tarefa_prazo: string;
   licitacoes_tarefa_status: number;
-  licitacoes_tarefa_licitacao_governo: string;
-  licitacoes_tarefa_empresa: number;
+  licitacoes_tarefa_licitacao_governo?: string | null;
+  licitacoes_tarefa_prioridade?: string;
+  licitacoes_tarefa_anotacao?: string;
+  licitacoes_tarefa_subtarefas?: string;
+  licitacoes_tarefa_usuario_display?: string;
+  licitacoes_tarefa_nome_responsavel?: string;
 }
 
 export interface Anotacao {
