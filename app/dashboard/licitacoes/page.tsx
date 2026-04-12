@@ -115,6 +115,7 @@ export default function LicitacoesPage() {
   const [concAto, setConcAto] = useState(false);
   const [concAviso, setConcAviso] = useState(false);
   const [concEdital, setConcEdital] = useState(false);
+  const [oportunidadesSelecionadas, setOportunidadesSelecionadas] = useState<string[]>([]);
 
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -190,7 +191,12 @@ export default function LicitacoesPage() {
       if (modalidade) params.set('modalidade', modalidade);
       if (uf) params.set('uf', uf);
       if (cidade) params.set('municipio', cidade);
-      if (busca.trim()) params.set('busca', busca.trim());
+      // Combina busca manual com oportunidades selecionadas
+      const termoBusca = [
+        busca.trim(),
+        ...oportunidadesSelecionadas,
+      ].filter(Boolean).join(' ');
+      if (termoBusca) params.set('busca', termoBusca);
       if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
 
       const res = await fetch(`/api/licitacoes?${params.toString()}`);
@@ -484,10 +490,13 @@ export default function LicitacoesPage() {
 
             <hr style={divider} />
 
-            {/* Oportunidades tag */}
+            {/* Oportunidades checkboxes */}
             <div style={{ marginBottom: '16px' }}>
               <label style={fieldLabel}>Oportunidades</label>
-              <OportunidadesTags />
+              <OportunidadesCheckboxes
+                selected={oportunidadesSelecionadas}
+                onChange={setOportunidadesSelecionadas}
+              />
             </div>
 
             {/* Procurar button */}
@@ -702,26 +711,81 @@ function PaginationBtn({
   );
 }
 
-// Shows user's opportunity keywords as tags
-function OportunidadesTags() {
+// Oportunidades como checkboxes
+function OportunidadesCheckboxes({
+  selected,
+  onChange,
+}: {
+  selected: string[];
+  onChange: (tags: string[]) => void;
+}) {
   const [tags, setTags] = useState<string[]>([]);
 
-  // Fetch once on mount
-  useState(() => {
+  useEffect(() => {
     fetch('/api/oportunidades')
       .then(r => r.ok ? r.json() : [])
       .then((data: any[]) => {
-        const keywords = data
-          .map(o => o.licitacoes_oportunidade_tagmento)
-          .filter(Boolean)
-          .slice(0, 5);
+        const keywords: string[] = [];
+        data.forEach((o: any) => {
+          const raw = o.licitacoes_oportunidade_tagmento;
+          if (!raw) return;
+          try {
+            // Tenta parsear como JSON array: ["impressora","arroz"]
+            const parsed = JSON.parse(raw);
+            if (Array.isArray(parsed)) {
+              parsed.forEach((k: string) => {
+                if (k && !keywords.includes(k)) keywords.push(k);
+              });
+            } else if (typeof parsed === 'string' && !keywords.includes(parsed)) {
+              keywords.push(parsed);
+            }
+          } catch {
+            // Não é JSON, usa direto como string
+            if (!keywords.includes(raw)) keywords.push(raw);
+          }
+        });
         setTags(keywords);
       })
       .catch(() => {});
-  });
+  }, []);
 
+  if (tags.length === 0) return (
+    <span style={{ fontSize: '12px', color: '#BDBDBD' }}>Nenhuma oportunidade cadastrada</span>
+  );
+
+  function toggle(tag: string) {
+    if (selected.includes(tag)) {
+      onChange(selected.filter(t => t !== tag));
+    } else {
+      onChange([...selected, tag]);
+    }
+  }
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+      {tags.map((tag) => (
+        <label
+          key={tag}
+          className="flex items-center gap-2 cursor-pointer"
+          style={{ fontSize: '12px', color: '#262E3A' }}
+        >
+          <input
+            type="checkbox"
+            checked={selected.includes(tag)}
+            onChange={() => toggle(tag)}
+            style={{ accentColor: '#0a1175', width: '13px', height: '13px', flexShrink: 0 }}
+          />
+          {tag}
+        </label>
+      ))}
+    </div>
+  );
+}
+
+// mantido para não quebrar importações antigas
+function OportunidadesTags() {
+  const [tags] = useState<string[]>([]);
   if (tags.length === 0) return null;
-
   return (
     <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
       {tags.map((tag, i) => (
