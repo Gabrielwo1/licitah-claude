@@ -1,19 +1,58 @@
+@import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap');
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #F6F5FA;
+  --foreground: #262E3A;
   --primary: #0a1175;
-  --accent: #ff6600;
+  --accent: #FF6600;
+  --card: #FFFFFF;
+  --border: #D3D3D3;
+  --text-secondary: #7B7B7B;
+
+  /* Status colors */
+  --status-aberto: #259F46;
+  --status-fechado: #FF4500;
+  --status-publicado: #FFD700;
+  --status-suspensa: #FFA500;
+
+  /* Priority colors */
+  --priority-baixa: #D3D3D3;
+  --priority-media: #FFD700;
+  --priority-alta: #FFA500;
+  --priority-urgente: #FF4500;
+  --priority-concluida: #32CD32;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  font-family: 'Montserrat', sans-serif;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
+  font-family: 'Montserrat', sans-serif;
 }
 
-* {
-  box-sizing: border-box;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 8px;
+  background-color: #6C6C6C30;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: #6C6C6C;
+  border-radius: 10px;
+}
+::-webkit-scrollbar-track {
+  background-color: #6C6C6C30;
+  border-radius: 10px;
 }
 
 .line-clamp-2 {

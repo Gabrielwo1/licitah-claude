@@ -1,19 +1,27 @@
 'use client';
 
 import Link from 'next/link';
-import { MapPin, Calendar, Building2, Star, CheckSquare, ExternalLink } from 'lucide-react';
-import { Card, CardContent } from '@/components/ui/card';
+import { MapPin, Calendar, Building2, Star, ExternalLink, Plus } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { formatCurrency, formatDate, truncate } from '@/lib/utils';
+import { formatCurrency, formatDate } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
 import { useState } from 'react';
 
-function getStatusBadge(situacaoId: number, nome: string) {
-  if (situacaoId === 1) return <Badge variant="success">{nome}</Badge>;
-  if (situacaoId === 2) return <Badge variant="destructive">{nome}</Badge>;
-  if (situacaoId === 3) return <Badge variant="warning">{nome}</Badge>;
-  return <Badge variant="secondary">{nome}</Badge>;
+type StatusVariant = 'aberto' | 'fechado' | 'publicado' | 'suspensa' | 'cancelada' | 'default';
+
+function getStatusVariant(situacaoId: number, nome: string): StatusVariant {
+  const lower = nome?.toLowerCase() || '';
+  if (lower.includes('divulg') || lower.includes('aberta') || lower.includes('aberto')) return 'aberto';
+  if (lower.includes('encerr') || lower.includes('fechad')) return 'fechado';
+  if (lower.includes('publicad') || lower.includes('publicad')) return 'publicado';
+  if (lower.includes('suspens')) return 'suspensa';
+  if (lower.includes('cancel')) return 'cancelada';
+  // Fallback by ID
+  if (situacaoId === 1) return 'aberto';
+  if (situacaoId === 2) return 'fechado';
+  if (situacaoId === 3) return 'suspensa';
+  return 'default';
 }
 
 interface LicitacaoCardProps {
@@ -22,7 +30,11 @@ interface LicitacaoCardProps {
   onFavoriteToggle?: (id: string) => void;
 }
 
-export function LicitacaoCard({ licitacao, isFavorite = false, onFavoriteToggle }: LicitacaoCardProps) {
+export function LicitacaoCard({
+  licitacao,
+  isFavorite = false,
+  onFavoriteToggle,
+}: LicitacaoCardProps) {
   const [fav, setFav] = useState(isFavorite);
   const [loading, setLoading] = useState(false);
 
@@ -32,7 +44,10 @@ export function LicitacaoCard({ licitacao, isFavorite = false, onFavoriteToggle 
       const res = await fetch('/api/favoritos', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ identificador: licitacao.numeroControlePNCP, modulo: 'licitacao' }),
+        body: JSON.stringify({
+          identificador: licitacao.numeroControlePNCP,
+          modulo: 'licitacao',
+        }),
       });
       if (res.ok) {
         const data = await res.json();
@@ -45,72 +60,133 @@ export function LicitacaoCard({ licitacao, isFavorite = false, onFavoriteToggle 
   }
 
   const detailHref = `/dashboard/licitacoes/${encodeURIComponent(licitacao.numeroControlePNCP)}`;
+  const statusVariant = getStatusVariant(licitacao.situacaoCompraId, licitacao.situacaoCompraNome);
 
   return (
-    <Card className="hover:shadow-md transition-shadow">
-      <CardContent className="p-4">
-        <div className="flex items-start justify-between gap-3 mb-3">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-2 flex-wrap mb-1">
-              {getStatusBadge(licitacao.situacaoCompraId, licitacao.situacaoCompraNome)}
-              <Badge variant="outline" className="text-xs">{licitacao.modalidadeNome}</Badge>
-            </div>
-            <h3 className="font-medium text-gray-900 text-sm leading-snug mt-1">
-              {truncate(licitacao.objetoCompra, 120)}
-            </h3>
-          </div>
-          <button
-            onClick={toggleFavorite}
-            disabled={loading}
-            className={`shrink-0 p-1.5 rounded-md transition-colors ${fav ? 'text-[#ff6600]' : 'text-gray-400 hover:text-[#ff6600]'}`}
-          >
-            <Star className="h-4 w-4" fill={fav ? 'currentColor' : 'none'} />
-          </button>
+    <div
+      className="bg-white p-5 hover:shadow-md transition-shadow"
+      style={{
+        borderRadius: '10px',
+        boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+      }}
+    >
+      {/* Header row */}
+      <div className="flex items-start justify-between gap-3 mb-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <Badge variant={statusVariant as any}>
+            {licitacao.situacaoCompraNome}
+          </Badge>
+          <Badge variant="outline" className="text-xs">
+            {licitacao.modalidadeNome}
+          </Badge>
+        </div>
+        {/* Favorite star */}
+        <button
+          onClick={toggleFavorite}
+          disabled={loading}
+          className="shrink-0 p-1 rounded transition-colors"
+          title={fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          style={{ color: fav ? '#FF6600' : '#CFCFCF' }}
+          onMouseEnter={(e) => {
+            if (!fav) (e.currentTarget as HTMLElement).style.color = '#FF6600';
+          }}
+          onMouseLeave={(e) => {
+            if (!fav) (e.currentTarget as HTMLElement).style.color = '#CFCFCF';
+          }}
+        >
+          <Star
+            className="h-5 w-5"
+            fill={fav ? '#FF6600' : 'none'}
+            stroke={fav ? '#FF6600' : 'currentColor'}
+          />
+        </button>
+      </div>
+
+      {/* Title */}
+      <h3
+        className="font-semibold text-sm leading-snug mb-3 line-clamp-2"
+        style={{ color: '#262E3A' }}
+        title={licitacao.objetoCompra}
+      >
+        {licitacao.objetoCompra}
+      </h3>
+
+      {/* Info grid */}
+      <div
+        className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs mb-3"
+        style={{ color: '#7B7B7B' }}
+      >
+        {/* Orgao */}
+        <div className="flex items-center gap-1.5">
+          <Building2 className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
+          <span className="truncate" title={licitacao.orgaoEntidade.razaoSocial}>
+            {licitacao.orgaoEntidade.razaoSocial}
+          </span>
         </div>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 text-xs text-gray-500 mb-3">
-          <div className="flex items-center gap-1.5">
-            <Building2 className="h-3.5 w-3.5 shrink-0" />
-            <span className="truncate">{truncate(licitacao.orgaoEntidade.razaoSocial, 50)}</span>
-          </div>
-          <div className="flex items-center gap-1.5">
-            <MapPin className="h-3.5 w-3.5 shrink-0" />
-            <span>{licitacao.unidadeOrgao.municipioNome}, {licitacao.unidadeOrgao.ufSigla}</span>
-          </div>
-          {licitacao.dataAberturaProposta && (
-            <div className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 shrink-0" />
-              <span>Abertura: {formatDate(licitacao.dataAberturaProposta)}</span>
-            </div>
-          )}
-          {licitacao.dataEncerramentoProposta && (
-            <div className="flex items-center gap-1.5">
-              <Calendar className="h-3.5 w-3.5 shrink-0" />
-              <span>Encerramento: {formatDate(licitacao.dataEncerramentoProposta)}</span>
-            </div>
-          )}
+        {/* Local */}
+        <div className="flex items-center gap-1.5">
+          <MapPin className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
+          <span>
+            {licitacao.unidadeOrgao.municipioNome}, {licitacao.unidadeOrgao.ufSigla}
+          </span>
         </div>
 
-        {licitacao.valorTotalEstimado && licitacao.valorTotalEstimado > 0 && (
-          <div className="text-sm font-semibold text-[#0a1175] mb-3">
-            {formatCurrency(licitacao.valorTotalEstimado)}
+        {/* Abertura */}
+        {licitacao.dataAberturaProposta && (
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#0a1175' }} />
+            <span>Abertura: {formatDate(licitacao.dataAberturaProposta)}</span>
           </div>
         )}
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <Link href={detailHref}>
-            <Button size="sm" variant="default">Ver detalhes</Button>
-          </Link>
-          {licitacao.linkSistemaOrigem && (
-            <a href={licitacao.linkSistemaOrigem} target="_blank" rel="noopener noreferrer">
-              <Button size="sm" variant="outline">
-                <ExternalLink className="h-3.5 w-3.5" />
-                Portal
-              </Button>
-            </a>
-          )}
+        {/* Encerramento */}
+        {licitacao.dataEncerramentoProposta && (
+          <div className="flex items-center gap-1.5">
+            <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#FF6600' }} />
+            <span>Encerramento: {formatDate(licitacao.dataEncerramentoProposta)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Value */}
+      {licitacao.valorTotalEstimado && licitacao.valorTotalEstimado > 0 && (
+        <div
+          className="text-base font-bold mb-3"
+          style={{ color: '#0a1175' }}
+        >
+          {formatCurrency(licitacao.valorTotalEstimado)}
         </div>
-      </CardContent>
-    </Card>
+      )}
+
+      {/* Actions */}
+      <div className="flex items-center gap-2 flex-wrap">
+        <Link href={detailHref}>
+          <Button size="sm" variant="padrao">
+            Ver detalhes
+          </Button>
+        </Link>
+
+        <Link href={`${detailHref}?criar_tarefa=1`}>
+          <Button size="sm" variant="orange-outline">
+            <Plus className="h-3.5 w-3.5" />
+            Criar tarefa
+          </Button>
+        </Link>
+
+        {licitacao.linkSistemaOrigem && (
+          <a
+            href={licitacao.linkSistemaOrigem}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
+            <Button size="sm" variant="outline">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Portal
+            </Button>
+          </a>
+        )}
+      </div>
+    </div>
   );
 }
