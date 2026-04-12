@@ -29,9 +29,9 @@ async function getStats(userId: string, empresaId: string | null) {
   try {
     const [favCount, taskCount, oppCount, notifCount] = await Promise.all([
       sql`SELECT COUNT(*) as c FROM favoritos WHERE favorito_autor = ${userId}`,
-      sql`SELECT COUNT(*) as c FROM licitacoes_tarefas WHERE licitacoes_tarefa_empresa = ${empresaId || 0} AND licitacoes_tarefa_status = 0`,
+      sql`SELECT COUNT(*) as c FROM licitacoes_tarefas WHERE licitacoes_tarefa_autor = ${userId} AND licitacoes_tarefa_status = 0`,
       sql`SELECT COUNT(*) as c FROM licitacoes_oportunidades WHERE licitacoes_oportunidade_empresa = ${empresaId || 0}`,
-      sql`SELECT COUNT(*) as c FROM notificacoes WHERE notificacao_destinatario = ${userId} AND notificacao_lida = 0`,
+      sql`SELECT COUNT(*) as c FROM notificacoes WHERE notificacao_destinatario = ${userId} AND notificacao_lido = 0`,
     ]);
     return {
       favoritos: Number(favCount[0]?.c || 0),

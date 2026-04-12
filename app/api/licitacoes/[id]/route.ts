@@ -25,24 +25,43 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   const idDecoded = decodeURIComponent(id);
 
   const parsed = parseNumeroControlePNCP(idDecoded);
-  if (!parsed) return NextResponse.json({ items: [] });
+  if (!parsed) return NextResponse.json({ licitacao: null, items: [] });
 
   const { cnpj, ano, sequencial } = parsed;
+  const baseUrl = `https://pncp.gov.br/api/consulta/v1/contratacoes/${cnpj}/${ano}/${sequencial}`;
 
   try {
-    const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/${cnpj}/${ano}/${sequencial}/itens?pagina=1&tamanhoPagina=100`;
-    const res = await fetch(url, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 600 },
-    });
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000);
 
-    if (!res.ok) return NextResponse.json({ items: [] });
+    const [detailRes, itemsRes] = await Promise.all([
+      fetch(baseUrl, {
+        headers: { Accept: 'application/json' },
+        signal: controller.signal,
+        next: { revalidate: 300 },
+      }).catch(() => null),
+      fetch(`${baseUrl}/itens?pagina=1&tamanhoPagina=100`, {
+        headers: { Accept: 'application/json' },
+        next: { revalidate: 600 },
+      }).catch(() => null),
+    ]);
 
-    const items = await res.json();
-    // API returns array directly for items
-    return NextResponse.json({ items: Array.isArray(items) ? items : (items.data || []) });
+    clearTimeout(timeout);
+
+    let licitacao = null;
+    if (detailRes?.ok) {
+      licitacao = await detailRes.json();
+    }
+
+    let items: any[] = [];
+    if (itemsRes?.ok) {
+      const itemsData = await itemsRes.json();
+      items = Array.isArray(itemsData) ? itemsData : (itemsData.data || []);
+    }
+
+    return NextResponse.json({ licitacao, items });
   } catch (error) {
-    console.error('PNCP items API error:', error);
-    return NextResponse.json({ items: [] });
+    console.error('PNCP detail API error:', error);
+    return NextResponse.json({ licitacao: null, items: [] });
   }
 }

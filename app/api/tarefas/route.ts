@@ -21,14 +21,14 @@ export async function GET(req: NextRequest) {
     tarefas = await sql`
       SELECT * FROM licitacoes_tarefas
       WHERE licitacoes_tarefa_autor = ${userId}
-        AND licitacoes_tarefa_status = 1
+        AND licitacoes_tarefa_status = 0
       ORDER BY licitacoes_tarefa_prazo ASC
     `;
   } else if (status === 'done') {
     tarefas = await sql`
       SELECT * FROM licitacoes_tarefas
       WHERE licitacoes_tarefa_autor = ${userId}
-        AND licitacoes_tarefa_status = 2
+        AND licitacoes_tarefa_status = 1
       ORDER BY licitacoes_tarefa_prazo DESC
     `;
   } else {
@@ -60,7 +60,7 @@ export async function POST(req: NextRequest) {
       licitacoes_tarefa_hash, licitacoes_tarefa_autor, licitacoes_tarefa_usuario,
       licitacoes_tarefa_usuario_display, licitacoes_tarefa_andamento, licitacoes_tarefa_prioridade
     )
-    VALUES (${nome}, ${prazo || null}, 1, ${hash}, ${userId}, ${userId}, ${userName}, 0, 'Média')
+    VALUES (${nome}, ${prazo || null}, 0, ${hash}, ${userId}, ${userId}, ${userName}, 0, 'Média')
     RETURNING *
   `;
 

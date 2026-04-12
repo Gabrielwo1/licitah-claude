@@ -22,7 +22,7 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         if (res.ok) {
           const data = await res.json();
           if (Array.isArray(data)) {
-            const unread = data.filter((n: any) => !n.notificacao_lida).length;
+            const unread = data.filter((n: any) => !n.notificacao_lido).length;
             setUnreadCount(unread);
           }
         }
