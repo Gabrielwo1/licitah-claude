@@ -149,7 +149,6 @@ export default function LicitacoesPage() {
     : licitacoes;
 
   // Client-side sort
-  const now = Date.now();
   const filtered = [...afterCidade].sort((a, b) => {
     if (sortBy === 'maior') return (b.valorTotalEstimado ?? -1) - (a.valorTotalEstimado ?? -1);
     if (sortBy === 'menor') {
@@ -158,16 +157,10 @@ export default function LicitacoesPage() {
       if (!b.valorTotalEstimado) return -1;
       return a.valorTotalEstimado - b.valorTotalEstimado;
     }
-    const dateA = (a as any).dataAtualizacaoPncp || a.dataPublicacaoPncp || 0;
-    const dateB = (b as any).dataAtualizacaoPncp || b.dataPublicacaoPncp || 0;
-    const da = new Date(dateA).getTime();
-    const db = new Date(dateB).getTime();
-    if (sortBy === 'recente') {
-      // Mais próxima do momento presente primeiro
-      return Math.abs(db - now) - Math.abs(da - now);
-    }
-    // antiga: mais distante do presente primeiro (data mais antiga)
-    return da - db;
+    const da = new Date(a.dataAberturaProposta || 0).getTime();
+    const db = new Date(b.dataAberturaProposta || 0).getTime();
+    if (sortBy === 'recente') return db - da; // abertura mais recente primeiro
+    return da - db; // abertura mais antiga primeiro
   });
 
   async function fetchLicitacoes(page = 1) {
