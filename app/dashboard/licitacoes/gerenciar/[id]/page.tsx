@@ -323,6 +323,7 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
   const [calView, setCalView] = useState<'mes' | 'dia' | 'semana'>('mes');
+  const [toast, setToast] = useState<string | null>(null);
 
   // Form fields
   const [nome, setNome] = useState('');
@@ -337,7 +338,7 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
 
   const fetchTarefas = useCallback(async () => {
     setLoading(true);
-    const res = await fetch(`/api/tarefas/por-licitacao/${encodeURIComponent(licitacaoId)}`);
+    const res = await fetch(`/api/tarefas/por-licitacao?licitacaoId=${encodeURIComponent(licitacaoId)}`);
     if (res.ok) setTarefas(await res.json());
     setLoading(false);
   }, [licitacaoId]);
@@ -361,7 +362,7 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
     e.preventDefault();
     if (!nome.trim()) return;
     setAdding(true);
-    const res = await fetch(`/api/tarefas/por-licitacao/${encodeURIComponent(licitacaoId)}`, {
+    const res = await fetch(`/api/tarefas/por-licitacao?licitacaoId=${encodeURIComponent(licitacaoId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -373,6 +374,8 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
       const t = await res.json();
       setTarefas(prev => [...prev, t]);
       resetForm();
+      setToast('Tarefa criada com sucesso!');
+      setTimeout(() => setToast(null), 3500);
     }
     setAdding(false);
   }
@@ -428,6 +431,21 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: 'fixed', bottom: '28px', right: '28px', zIndex: 2000,
+          backgroundColor: '#259F46', color: '#fff', borderRadius: '10px',
+          padding: '14px 22px', fontSize: '14px', fontWeight: 600,
+          boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+          display: 'flex', alignItems: 'center', gap: '10px',
+          animation: 'fadeIn .2s ease',
+        }}>
+          <Check className="h-4 w-4" />
+          {toast}
+        </div>
+      )}
+
       {/* Summary cards */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
         {summaryCards.map(c => (
