@@ -116,6 +116,7 @@ export default function LicitacoesPage() {
 
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [sortBy, setSortBy] = useState<'recente' | 'maior' | 'menor'>('recente');
   const didAutoSearch = useRef(false);
   const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
   const [total, setTotal] = useState(0);
@@ -141,11 +142,27 @@ export default function LicitacoesPage() {
     : allLicitacoes;
 
   // Client-side cidade filter
-  const filtered = cidade
+  const afterCidade = cidade
     ? licitacoes.filter((l) =>
         l.unidadeOrgao?.municipioNome?.toLowerCase().includes(cidade.toLowerCase())
       )
     : licitacoes;
+
+  // Client-side sort
+  const filtered = [...afterCidade].sort((a, b) => {
+    if (sortBy === 'maior') return (b.valorTotalEstimado ?? -1) - (a.valorTotalEstimado ?? -1);
+    if (sortBy === 'menor') {
+      // Put nulls last
+      if (!a.valorTotalEstimado && !b.valorTotalEstimado) return 0;
+      if (!a.valorTotalEstimado) return 1;
+      if (!b.valorTotalEstimado) return -1;
+      return a.valorTotalEstimado - b.valorTotalEstimado;
+    }
+    // recente: by dataAtualizacaoPncp or dataPublicacaoPncp desc
+    const da = new Date((a as any).dataAtualizacaoPncp || a.dataPublicacaoPncp || 0).getTime();
+    const db = new Date((b as any).dataAtualizacaoPncp || b.dataPublicacaoPncp || 0).getTime();
+    return db - da;
+  });
 
   async function fetchLicitacoes(page = 1) {
     setLoading(true);
@@ -521,19 +538,51 @@ export default function LicitacoesPage() {
         {/* Results */}
         {!loading && filtered.length > 0 && (
           <>
-            {/* Result count */}
+            {/* Result count + sort buttons */}
             <div
-              style={{
-                fontSize: '13px',
-                color: '#7B7B7B',
-                marginBottom: '12px',
-                fontWeight: 500,
-              }}
+              className="flex items-center justify-between flex-wrap gap-2"
+              style={{ marginBottom: '12px' }}
             >
-              {total > 0
-                ? `${total.toLocaleString('pt-BR')} resultado(s)`
-                : `${filtered.length} resultado(s)`}
-              {totalPaginas > 1 && ` — Página ${pagina} de ${totalPaginas}`}
+              <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
+                {total > 0
+                  ? `${total.toLocaleString('pt-BR')} resultado(s)`
+                  : `${filtered.length} resultado(s)`}
+                {totalPaginas > 1 && ` — Página ${pagina} de ${totalPaginas}`}
+              </span>
+
+              {/* Sort pills */}
+              <div className="flex items-center gap-1.5">
+                {([
+                  { key: 'recente', label: 'Mais recentes' },
+                  { key: 'maior',   label: 'Maior valor' },
+                  { key: 'menor',   label: 'Menor valor' },
+                ] as const).map(({ key, label }) => (
+                  <button
+                    key={key}
+                    onClick={() => setSortBy(key)}
+                    style={{
+                      fontSize: '12px',
+                      fontWeight: 600,
+                      padding: '5px 12px',
+                      borderRadius: '20px',
+                      border: sortBy === key ? 'none' : '1px solid #D3D3D3',
+                      backgroundColor: sortBy === key ? '#262E3A' : '#fff',
+                      color: sortBy === key ? '#fff' : '#7B7B7B',
+                      cursor: 'pointer',
+                      transition: 'all 0.15s',
+                      whiteSpace: 'nowrap',
+                    }}
+                    onMouseEnter={e => {
+                      if (sortBy !== key) (e.currentTarget as HTMLElement).style.borderColor = '#262E3A';
+                    }}
+                    onMouseLeave={e => {
+                      if (sortBy !== key) (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3';
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
             </div>
 
             {/* Cards */}
