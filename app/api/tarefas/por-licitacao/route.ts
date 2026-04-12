@@ -51,10 +51,10 @@ export async function POST(req: NextRequest) {
       licitacoes_tarefa_licitacao_governo
     )
     VALUES (
-      ${nome}, ${prazo || null}, 0,
+      ${nome}, ${prazo || ''}, 0,
       ${hash}, ${userId}, ${userId},
-      ${userName}, 0, ${prioridade || 'Média'},
-      ${responsavel}, ${subtarefasJson}, ${anotacao || ''},
+      ${userName || 'Usuário'}, 0, ${prioridade || 'Média'},
+      ${responsavel || 'Usuário'}, ${subtarefasJson}, ${anotacao || ''},
       ${licitacaoId}
     )
     RETURNING *
