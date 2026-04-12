@@ -464,7 +464,7 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
           {tarefas.length} tarefa{tarefas.length !== 1 ? 's' : ''}
         </span>
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => setShowForm(true)}
           className="flex items-center gap-1.5"
           style={{
             backgroundColor: '#FF6600', color: '#fff', border: 'none',
@@ -477,90 +477,115 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
         </button>
       </div>
 
-      {/* Rich form */}
+      {/* Modal */}
       {showForm && (
-        <form onSubmit={addTarefa} style={{ backgroundColor: '#F9F9F9', border: '1px solid #E8E8E8', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
-          {/* Nome */}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Nome da tarefa</label>
-            <input type="text" placeholder="Nome Da Tarefa" value={nome} onChange={e => setNome(e.target.value)} required style={inp} />
-          </div>
-
-          {/* Subtarefas */}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Subtarefas</label>
-            <div className="flex gap-2 mb-2">
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
-                <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
-                <input type="text" placeholder="Subtarefa" value={subNome} onChange={e => setSubNome(e.target.value)}
-                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
-              </div>
-              <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
-                <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
-                <input type="datetime-local" value={subPrazo} onChange={e => setSubPrazo(e.target.value)}
-                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
-              </div>
-              <button type="button" onClick={addSub}
-                style={{ backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
-                <Check className="h-3 w-3" /> Adicionar
+        <div
+          onClick={resetForm}
+          style={{
+            position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)',
+            zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center',
+          }}
+        >
+          <form
+            onSubmit={addTarefa}
+            onClick={e => e.stopPropagation()}
+            style={{
+              backgroundColor: '#fff', borderRadius: '14px', padding: '28px',
+              width: '100%', maxWidth: '520px', maxHeight: '90vh',
+              overflowY: 'auto', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between" style={{ marginBottom: '20px' }}>
+              <span style={{ fontSize: '16px', fontWeight: 700, color: '#262E3A' }}>Nova tarefa</span>
+              <button type="button" onClick={resetForm}
+                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B', padding: '2px' }}>
+                <X className="h-5 w-5" />
               </button>
             </div>
-            {subtarefas.map((s, i) => (
-              <div key={i} className="flex items-center gap-2" style={{ fontSize: '12px', color: '#262E3A', backgroundColor: '#fff', borderRadius: '6px', padding: '5px 10px', marginBottom: '4px', border: '1px solid #E8E8E8' }}>
-                <Check className="h-3 w-3 shrink-0" style={{ color: '#259F46' }} />
-                <span style={{ flex: 1 }}>{s.nome}</span>
-                {s.prazo && <span style={{ color: '#9B9B9B', fontSize: '11px' }}>{s.prazo.replace('T', ' ')}</span>}
-                <button type="button" onClick={() => setSubtarefas(p => p.filter((_, j) => j !== i))}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
-                  <X className="h-3.5 w-3.5" />
+
+            {/* Nome */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Nome da tarefa</label>
+              <input type="text" placeholder="Nome da tarefa" value={nome} onChange={e => setNome(e.target.value)} required style={inp} />
+            </div>
+
+            {/* Subtarefas */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Subtarefas</label>
+              <div className="flex gap-2 mb-2">
+                <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                  <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                  <input type="text" placeholder="Subtarefa" value={subNome} onChange={e => setSubNome(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                  <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                  <input type="datetime-local" value={subPrazo} onChange={e => setSubPrazo(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '12px', padding: '8px 0', backgroundColor: 'transparent' }} />
+                </div>
+                <button type="button" onClick={addSub}
+                  style={{ backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 12px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                  <Check className="h-3 w-3" />
                 </button>
               </div>
-            ))}
-          </div>
+              {subtarefas.map((s, i) => (
+                <div key={i} className="flex items-center gap-2" style={{ fontSize: '12px', color: '#262E3A', backgroundColor: '#F9F9F9', borderRadius: '6px', padding: '5px 10px', marginBottom: '4px', border: '1px solid #E8E8E8' }}>
+                  <Check className="h-3 w-3 shrink-0" style={{ color: '#259F46' }} />
+                  <span style={{ flex: 1 }}>{s.nome}</span>
+                  {s.prazo && <span style={{ color: '#9B9B9B', fontSize: '11px' }}>{s.prazo.replace('T', ' ')}</span>}
+                  <button type="button" onClick={() => setSubtarefas(p => p.filter((_, j) => j !== i))}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              ))}
+            </div>
 
-          {/* Prazo + Prioridade */}
-          <div className="flex gap-3 mb-3">
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prazo</label>
-              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
-                <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
-                <input type="datetime-local" value={prazo} onChange={e => setPrazo(e.target.value)}
-                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+            {/* Prazo + Prioridade */}
+            <div className="flex gap-3" style={{ marginBottom: '14px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prazo</label>
+                <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                  <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                  <input type="datetime-local" value={prazo} onChange={e => setPrazo(e.target.value)}
+                    style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+                </div>
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prioridade</label>
+                <select value={prioridade} onChange={e => setPrioridade(e.target.value)} style={{ ...inp, appearance: 'auto' }}>
+                  {PRIORIDADES_LIC.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
               </div>
             </div>
-            <div style={{ flex: 1 }}>
-              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prioridade</label>
-              <select value={prioridade} onChange={e => setPrioridade(e.target.value)} style={{ ...inp, appearance: 'auto' }}>
-                {PRIORIDADES_LIC.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
+
+            {/* Responsável */}
+            <div style={{ marginBottom: '14px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Responsável</label>
+              <input type="text" value={nomeResponsavel} onChange={e => setNomeResponsavel(e.target.value)} placeholder="Nome do responsável" style={inp} />
             </div>
-          </div>
 
-          {/* Responsável */}
-          <div style={{ marginBottom: '14px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Nome do Usuário</label>
-            <input type="text" value={nomeResponsavel} onChange={e => setNomeResponsavel(e.target.value)} placeholder="Responsável" style={inp} />
-          </div>
+            {/* Anotações */}
+            <div style={{ marginBottom: '20px' }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Anotações</label>
+              <textarea value={anotacao} onChange={e => setAnotacao(e.target.value)} rows={3} placeholder="Observações..."
+                style={{ ...inp, resize: 'vertical' }} />
+            </div>
 
-          {/* Anotações */}
-          <div style={{ marginBottom: '16px' }}>
-            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Anotações</label>
-            <textarea value={anotacao} onChange={e => setAnotacao(e.target.value)} rows={3} placeholder="Observações..."
-              style={{ ...inp, resize: 'vertical' }} />
-          </div>
-
-          {/* Buttons */}
-          <div className="flex gap-2">
-            <button type="submit" disabled={adding || !nome.trim()}
-              style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
-              {adding ? 'Salvando...' : 'Salvar tarefa'}
-            </button>
-            <button type="button" onClick={resetForm}
-              style={{ backgroundColor: 'transparent', color: '#7B7B7B', border: '1px solid #CFCFCF', borderRadius: '8px', padding: '9px 20px', fontSize: '13px', cursor: 'pointer' }}>
-              Cancelar
-            </button>
-          </div>
-        </form>
+            {/* Buttons */}
+            <div className="flex gap-2">
+              <button type="submit" disabled={adding || !nome.trim()}
+                style={{ flex: 1, backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '8px', padding: '11px 20px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}>
+                {adding ? 'Salvando...' : 'Salvar tarefa'}
+              </button>
+              <button type="button" onClick={resetForm}
+                style={{ backgroundColor: 'transparent', color: '#7B7B7B', border: '1px solid #CFCFCF', borderRadius: '8px', padding: '11px 20px', fontSize: '14px', cursor: 'pointer' }}>
+                Cancelar
+              </button>
+            </div>
+          </form>
+        </div>
       )}
 
       {tarefas.length === 0 ? (
