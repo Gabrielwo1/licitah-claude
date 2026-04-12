@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, CheckSquare, FileText, Paperclip, ShieldCheck,
   Calendar, Plus, Trash2, Check, ChevronLeft, ChevronRight,
-  ExternalLink,
+  ExternalLink, Clock, X,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 
@@ -203,13 +203,34 @@ function CalendarView({ tarefas }: { tarefas: Tarefa[] }) {
 
 // ─── Tab: Tarefas ─────────────────────────────────────────────────────────────
 
+const PRIORIDADES_LIC = ['Baixa', 'Média', 'Alta', 'Urgente'];
+
+function prioColor(p: string | undefined) {
+  switch (p?.toLowerCase()) {
+    case 'urgente': return { backgroundColor: '#FF4500', color: '#fff' };
+    case 'alta':    return { backgroundColor: '#FF6600', color: '#fff' };
+    case 'baixa':   return { backgroundColor: '#259F46', color: '#fff' };
+    default:        return { backgroundColor: '#FFD700', color: '#262E3A' };
+  }
+}
+
+interface SubItem { nome: string; prazo: string; }
+
 function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showForm, setShowForm] = useState(false);
+
+  // Form fields
   const [nome, setNome] = useState('');
   const [prazo, setPrazo] = useState('');
+  const [prioridade, setPrioridade] = useState('Média');
+  const [anotacao, setAnotacao] = useState('');
+  const [nomeResponsavel, setNomeResponsavel] = useState('');
+  const [subtarefas, setSubtarefas] = useState<SubItem[]>([]);
+  const [subNome, setSubNome] = useState('');
+  const [subPrazo, setSubPrazo] = useState('');
   const [adding, setAdding] = useState(false);
-  const [showForm, setShowForm] = useState(false);
 
   const fetchTarefas = useCallback(async () => {
     setLoading(true);
@@ -220,20 +241,35 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
 
   useEffect(() => { fetchTarefas(); }, [fetchTarefas]);
 
-  async function addTarefa() {
+  function addSub() {
+    if (!subNome.trim()) return;
+    setSubtarefas(prev => [...prev, { nome: subNome.trim(), prazo: subPrazo }]);
+    setSubNome(''); setSubPrazo('');
+  }
+
+  function resetForm() {
+    setNome(''); setPrazo(''); setPrioridade('Média');
+    setAnotacao(''); setNomeResponsavel(''); setSubtarefas([]);
+    setSubNome(''); setSubPrazo('');
+    setShowForm(false);
+  }
+
+  async function addTarefa(e: React.FormEvent) {
+    e.preventDefault();
     if (!nome.trim()) return;
     setAdding(true);
     const res = await fetch(`/api/tarefas/por-licitacao/${encodeURIComponent(licitacaoId)}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: nome.trim(), prazo: prazo || null }),
+      body: JSON.stringify({
+        nome: nome.trim(), prazo: prazo || null,
+        prioridade, anotacao, nomeResponsavel, subtarefas,
+      }),
     });
     if (res.ok) {
       const t = await res.json();
       setTarefas(prev => [...prev, t]);
-      setNome('');
-      setPrazo('');
-      setShowForm(false);
+      resetForm();
     }
     setAdding(false);
   }
@@ -241,14 +277,12 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
   async function toggleStatus(t: Tarefa) {
     const newStatus = t.licitacoes_tarefa_status === 0 ? 1 : 0;
     await fetch(`/api/tarefas/${t.licitacoes_tarefa_id}`, {
-      method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      method: 'PUT', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     });
     setTarefas(prev => prev.map(x =>
       x.licitacoes_tarefa_id === t.licitacoes_tarefa_id
-        ? { ...x, licitacoes_tarefa_status: newStatus }
-        : x
+        ? { ...x, licitacoes_tarefa_status: newStatus } : x
     ));
   }
 
@@ -256,6 +290,12 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
     await fetch(`/api/tarefas/${id}`, { method: 'DELETE' });
     setTarefas(prev => prev.filter(x => x.licitacoes_tarefa_id !== id));
   }
+
+  const inp: React.CSSProperties = {
+    border: '1px solid #E0E0E0', borderRadius: '8px',
+    padding: '9px 12px', fontSize: '13px', outline: 'none',
+    color: '#262E3A', backgroundColor: '#fff', width: '100%', boxSizing: 'border-box',
+  };
 
   if (loading) return <p style={{ color: '#7B7B7B', fontSize: '14px' }}>Carregando...</p>;
 
@@ -279,109 +319,141 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
         </button>
       </div>
 
+      {/* Rich form */}
       {showForm && (
-        <div
-          style={{
-            backgroundColor: '#F9F9F9', border: '1px solid #E8E8E8',
-            borderRadius: '8px', padding: '16px', marginBottom: '16px',
-          }}
-        >
-          <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              placeholder="Nome da tarefa"
-              value={nome}
-              onChange={e => setNome(e.target.value)}
-              style={{
-                border: '1px solid #CFCFCF', borderRadius: '6px',
-                padding: '8px 12px', fontSize: '13px', outline: 'none', width: '100%',
-              }}
-            />
-            <input
-              type="date"
-              value={prazo}
-              onChange={e => setPrazo(e.target.value)}
-              style={{
-                border: '1px solid #CFCFCF', borderRadius: '6px',
-                padding: '8px 12px', fontSize: '13px', outline: 'none', width: '200px',
-              }}
-            />
-            <div className="flex gap-2">
-              <button
-                onClick={addTarefa}
-                disabled={adding || !nome.trim()}
-                style={{
-                  backgroundColor: '#262E3A', color: '#fff', border: 'none',
-                  borderRadius: '6px', padding: '7px 16px', fontSize: '13px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                {adding ? 'Salvando...' : 'Salvar'}
-              </button>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  backgroundColor: 'transparent', color: '#7B7B7B',
-                  border: '1px solid #CFCFCF', borderRadius: '6px',
-                  padding: '7px 16px', fontSize: '13px', cursor: 'pointer',
-                }}
-              >
-                Cancelar
+        <form onSubmit={addTarefa} style={{ backgroundColor: '#F9F9F9', border: '1px solid #E8E8E8', borderRadius: '10px', padding: '20px', marginBottom: '20px' }}>
+          {/* Nome */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Nome da tarefa</label>
+            <input type="text" placeholder="Nome Da Tarefa" value={nome} onChange={e => setNome(e.target.value)} required style={inp} />
+          </div>
+
+          {/* Subtarefas */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Subtarefas</label>
+            <div className="flex gap-2 mb-2">
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                <Calendar className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                <input type="text" placeholder="Subtarefa" value={subNome} onChange={e => setSubNome(e.target.value)}
+                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+              </div>
+              <div style={{ flex: 1, display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                <input type="datetime-local" value={subPrazo} onChange={e => setSubPrazo(e.target.value)}
+                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+              </div>
+              <button type="button" onClick={addSub}
+                style={{ backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '8px', padding: '0 14px', fontSize: '12px', fontWeight: 600, cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '4px', whiteSpace: 'nowrap' }}>
+                <Check className="h-3 w-3" /> Adicionar
               </button>
             </div>
+            {subtarefas.map((s, i) => (
+              <div key={i} className="flex items-center gap-2" style={{ fontSize: '12px', color: '#262E3A', backgroundColor: '#fff', borderRadius: '6px', padding: '5px 10px', marginBottom: '4px', border: '1px solid #E8E8E8' }}>
+                <Check className="h-3 w-3 shrink-0" style={{ color: '#259F46' }} />
+                <span style={{ flex: 1 }}>{s.nome}</span>
+                {s.prazo && <span style={{ color: '#9B9B9B', fontSize: '11px' }}>{s.prazo.replace('T', ' ')}</span>}
+                <button type="button" onClick={() => setSubtarefas(p => p.filter((_, j) => j !== i))}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </div>
+            ))}
           </div>
-        </div>
+
+          {/* Prazo + Prioridade */}
+          <div className="flex gap-3 mb-3">
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prazo</label>
+              <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', backgroundColor: '#fff' }}>
+                <Clock className="h-3.5 w-3.5 shrink-0" style={{ color: '#9B9B9B', marginRight: '6px' }} />
+                <input type="datetime-local" value={prazo} onChange={e => setPrazo(e.target.value)}
+                  style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '8px 0', backgroundColor: 'transparent' }} />
+              </div>
+            </div>
+            <div style={{ flex: 1 }}>
+              <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Prioridade</label>
+              <select value={prioridade} onChange={e => setPrioridade(e.target.value)} style={{ ...inp, appearance: 'auto' }}>
+                {PRIORIDADES_LIC.map(p => <option key={p} value={p}>{p}</option>)}
+              </select>
+            </div>
+          </div>
+
+          {/* Responsável */}
+          <div style={{ marginBottom: '14px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Nome do Usuário</label>
+            <input type="text" value={nomeResponsavel} onChange={e => setNomeResponsavel(e.target.value)} placeholder="Responsável" style={inp} />
+          </div>
+
+          {/* Anotações */}
+          <div style={{ marginBottom: '16px' }}>
+            <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '5px' }}>Anotações</label>
+            <textarea value={anotacao} onChange={e => setAnotacao(e.target.value)} rows={3} placeholder="Observações..."
+              style={{ ...inp, resize: 'vertical' }} />
+          </div>
+
+          {/* Buttons */}
+          <div className="flex gap-2">
+            <button type="submit" disabled={adding || !nome.trim()}
+              style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '8px', padding: '9px 20px', fontSize: '13px', fontWeight: 700, cursor: 'pointer' }}>
+              {adding ? 'Salvando...' : 'Salvar tarefa'}
+            </button>
+            <button type="button" onClick={resetForm}
+              style={{ backgroundColor: 'transparent', color: '#7B7B7B', border: '1px solid #CFCFCF', borderRadius: '8px', padding: '9px 20px', fontSize: '13px', cursor: 'pointer' }}>
+              Cancelar
+            </button>
+          </div>
+        </form>
       )}
 
       {tarefas.length === 0 ? (
         <p style={{ color: '#9B9B9B', fontSize: '13px' }}>Nenhuma tarefa ainda.</p>
       ) : (
         <div className="space-y-2">
-          {tarefas.map(t => (
-            <div
-              key={t.licitacoes_tarefa_id}
-              className="flex items-center gap-3"
-              style={{
-                backgroundColor: '#fff', border: '1px solid #E8E8E8',
-                borderRadius: '6px', padding: '10px 14px',
-              }}
-            >
-              <button
-                onClick={() => toggleStatus(t)}
-                style={{
-                  width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
-                  border: `2px solid ${t.licitacoes_tarefa_status === 1 ? '#259F46' : '#CFCFCF'}`,
-                  backgroundColor: t.licitacoes_tarefa_status === 1 ? '#259F46' : 'transparent',
-                  display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
-                }}
-              >
-                {t.licitacoes_tarefa_status === 1 && <Check className="h-3 w-3 text-white" />}
-              </button>
-              <div className="flex-1 min-w-0">
-                <span
+          {tarefas.map(t => {
+            const isDone = t.licitacoes_tarefa_status === 1;
+            const prio = prioColor(t.licitacoes_tarefa_prioridade);
+            return (
+              <div key={t.licitacoes_tarefa_id} className="flex items-center gap-3"
+                style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '6px', padding: '10px 14px', opacity: isDone ? 0.7 : 1 }}>
+                <button onClick={() => toggleStatus(t)}
                   style={{
-                    fontSize: '13px', color: '#262E3A',
-                    textDecoration: t.licitacoes_tarefa_status === 1 ? 'line-through' : 'none',
-                  }}
-                >
-                  {t.licitacoes_tarefa_nome}
-                </span>
-                {t.licitacoes_tarefa_prazo && (
-                  <span style={{ fontSize: '11px', color: '#9B9B9B', marginLeft: '8px' }}>
-                    {formatDate(t.licitacoes_tarefa_prazo)}
+                    width: '20px', height: '20px', borderRadius: '4px', flexShrink: 0,
+                    border: `2px solid ${isDone ? '#259F46' : '#CFCFCF'}`,
+                    backgroundColor: isDone ? '#259F46' : 'transparent',
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer',
+                  }}>
+                  {isDone && <Check className="h-3 w-3 text-white" />}
+                </button>
+                <div className="flex-1 min-w-0">
+                  <span style={{ fontSize: '13px', color: '#262E3A', textDecoration: isDone ? 'line-through' : 'none' }}>
+                    {t.licitacoes_tarefa_nome}
                   </span>
-                )}
+                  <div className="flex items-center gap-2 mt-1 flex-wrap">
+                    {t.licitacoes_tarefa_prazo && (
+                      <span style={{ fontSize: '11px', color: '#9B9B9B' }}>{formatDate(t.licitacoes_tarefa_prazo)}</span>
+                    )}
+                    {t.licitacoes_tarefa_prioridade && (
+                      <span style={{ ...prio, fontSize: '10px', fontWeight: 700, padding: '1px 6px', borderRadius: '3px' }}>
+                        {t.licitacoes_tarefa_prioridade}
+                      </span>
+                    )}
+                    {t.licitacoes_tarefa_nome_responsavel && (
+                      <span style={{ fontSize: '11px', color: '#7B7B7B' }}>👤 {t.licitacoes_tarefa_nome_responsavel}</span>
+                    )}
+                  </div>
+                  {t.licitacoes_tarefa_anotacao && (
+                    <p style={{ fontSize: '11px', color: '#9B9B9B', marginTop: '4px', fontStyle: 'italic' }}>{t.licitacoes_tarefa_anotacao}</p>
+                  )}
+                </div>
+                <button onClick={() => deleteTarefa(t.licitacoes_tarefa_id)}
+                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: '2px' }}
+                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#FF4500')}
+                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#CFCFCF')}>
+                  <Trash2 className="h-4 w-4" />
+                </button>
               </div>
-              <button
-                onClick={() => deleteTarefa(t.licitacoes_tarefa_id)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: '2px' }}
-                onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#FF4500')}
-                onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#CFCFCF')}
-              >
-                <Trash2 className="h-4 w-4" />
-              </button>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

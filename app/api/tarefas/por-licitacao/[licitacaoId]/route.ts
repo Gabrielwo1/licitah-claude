@@ -39,10 +39,13 @@ export async function POST(
   const { licitacaoId } = await params;
   const id = decodeURIComponent(licitacaoId);
 
-  const { nome, prazo } = await req.json();
+  const { nome, prazo, prioridade, anotacao, nomeResponsavel, subtarefas } = await req.json();
   if (!nome) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 });
 
   const hash = randomHash();
+  const responsavel = nomeResponsavel || userName;
+  const subtarefasJson = subtarefas ? JSON.stringify(subtarefas) : '[]';
+
   const result = await sql`
     INSERT INTO licitacoes_tarefas (
       licitacoes_tarefa_nome, licitacoes_tarefa_prazo, licitacoes_tarefa_status,
@@ -54,8 +57,8 @@ export async function POST(
     VALUES (
       ${nome}, ${prazo || null}, 0,
       ${hash}, ${userId}, ${userId},
-      ${userName}, 0, 'Média',
-      ${userName}, '', '',
+      ${userName}, 0, ${prioridade || 'Média'},
+      ${responsavel}, ${subtarefasJson}, ${anotacao || ''},
       ${id}
     )
     RETURNING *
