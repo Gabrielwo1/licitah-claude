@@ -66,6 +66,23 @@ export function LicitacaoCard({
   // Use dataAtualizacaoPncp if available, fallback to dataPublicacaoPncp
   const updatedAt = (licitacao as any).dataAtualizacaoPncp || licitacao.dataPublicacaoPncp;
 
+  // Monta URL do PNCP: pncp.gov.br/app/editais/{cnpj}/{ano}/{sequencial}
+  // numeroControlePNCP ex: "03755472000142-1-000020/2026"
+  function buildPncpUrl(id: string): string {
+    try {
+      const parts = id.split('-');
+      const cnpj = parts[0];
+      const last = parts[parts.length - 1]; // "000020/2026"
+      const [seqStr, ano] = last.split('/');
+      const sequencial = parseInt(seqStr, 10); // remove zeros à esquerda
+      return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${sequencial}`;
+    } catch {
+      return licitacao.linkSistemaOrigem || '#';
+    }
+  }
+
+  const pncpUrl = buildPncpUrl(licitacao.numeroControlePNCP);
+
   const hasDatas = licitacao.dataAberturaProposta || licitacao.dataEncerramentoProposta;
 
   return (
@@ -209,8 +226,8 @@ export function LicitacaoCard({
           </Link>
 
           {/* Consultar edital */}
-          {licitacao.linkSistemaOrigem && (
-            <a href={licitacao.linkSistemaOrigem} target="_blank" rel="noopener noreferrer">
+          {pncpUrl && (
+            <a href={pncpUrl} target="_blank" rel="noopener noreferrer">
               <button
                 className="flex items-center gap-1.5 font-semibold transition-colors"
                 style={{

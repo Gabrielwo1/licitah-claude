@@ -13,6 +13,19 @@ import { Licitacao, LicitacaoItem, Anotacao, Tarefa } from '@/lib/types';
 
 type StatusVariant = 'aberto' | 'fechado' | 'publicado' | 'suspensa' | 'cancelada' | 'default';
 
+function buildPncpUrl(id: string): string {
+  try {
+    const parts = id.split('-');
+    const cnpj = parts[0];
+    const last = parts[parts.length - 1];
+    const [seqStr, ano] = last.split('/');
+    const sequencial = parseInt(seqStr, 10);
+    return `https://pncp.gov.br/app/editais/${cnpj}/${ano}/${sequencial}`;
+  } catch {
+    return '#';
+  }
+}
+
 function getStatusVariant(situacaoId: number, nome: string): StatusVariant {
   const lower = nome?.toLowerCase() || '';
   if (lower.includes('divulg') || lower.includes('aberta') || lower.includes('aberto')) return 'aberto';
@@ -185,14 +198,12 @@ export default function LicitacaoDetailPage() {
             <Star className="h-4 w-4" fill={isFavorite ? 'currentColor' : 'none'} />
             {isFavorite ? 'Favoritado' : 'Favoritar'}
           </button>
-          {licitacao?.linkSistemaOrigem && (
-            <a href={licitacao.linkSistemaOrigem} target="_blank" rel="noopener noreferrer">
-              <Button variant="outline" size="sm">
-                <ExternalLink className="h-3.5 w-3.5" />
-                Portal oficial
-              </Button>
-            </a>
-          )}
+          <a href={buildPncpUrl(id)} target="_blank" rel="noopener noreferrer">
+            <Button variant="outline" size="sm">
+              <ExternalLink className="h-3.5 w-3.5" />
+              Consultar edital
+            </Button>
+          </a>
         </div>
       </div>
 
