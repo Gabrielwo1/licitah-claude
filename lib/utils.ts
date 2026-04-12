@@ -43,6 +43,12 @@ export function sevenDaysAgoISO(): string {
   return d.toISOString().split('T')[0];
 }
 
+export function threeMonthsAgoISO(): string {
+  const d = new Date();
+  d.setMonth(d.getMonth() - 3);
+  return d.toISOString().split('T')[0];
+}
+
 export function truncate(str: string, maxLen: number): string {
   if (!str) return '';
   if (str.length <= maxLen) return str;

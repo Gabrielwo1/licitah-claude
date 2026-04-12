@@ -1,10 +1,10 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
-import { todayISO, sevenDaysAgoISO } from '@/lib/utils';
+import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
 
 const MODALIDADES = [
   { value: '', label: 'Selecione um opção' },
@@ -101,8 +101,8 @@ export default function LicitacoesPage() {
   const [uf, setUf] = useState('');
   const [cidade, setCidade] = useState('');
   const [modalidade, setModalidade] = useState('7');
-  const [dataAberturaInicio, setDataAberturaInicio] = useState('');
-  const [dataAberturaFim, setDataAberturaFim] = useState('');
+  const [dataAberturaInicio, setDataAberturaInicio] = useState(threeMonthsAgoISO);
+  const [dataAberturaFim, setDataAberturaFim] = useState(todayISO);
   const [nConciliacao, setNConciliacao] = useState('');
   const [codigoOrgao, setCodigoOrgao] = useState('');
   const [esfera, setEsfera] = useState('');
@@ -116,12 +116,21 @@ export default function LicitacoesPage() {
 
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
+  const didAutoSearch = useRef(false);
   const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
   const [total, setTotal] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState('');
+
+  // Auto-busca ao abrir o módulo
+  useEffect(() => {
+    if (didAutoSearch.current) return;
+    didAutoSearch.current = true;
+    fetchLicitacoes(1);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Client-side situação filter
   const licitacoes = situacao
@@ -146,11 +155,8 @@ export default function LicitacoesPage() {
       params.set('pagina', String(page));
       params.set('tamanhoPagina', String(PAGE_SIZE));
 
-      // Dates — use default range if not set
-      const dataIni = dataAberturaInicio || sevenDaysAgoISO();
-      const dataFim = dataAberturaFim || todayISO();
-      params.set('dataInicial', dataIni);
-      params.set('dataFinal', dataFim);
+      params.set('dataInicial', dataAberturaInicio);
+      params.set('dataFinal', dataAberturaFim);
 
       if (modalidade) params.set('modalidade', modalidade);
       if (uf) params.set('uf', uf);
@@ -495,21 +501,10 @@ export default function LicitacoesPage() {
           </div>
         )}
 
-        {/* Empty state */}
+        {/* Empty state — só antes da primeira busca automática carregar */}
         {!loading && !searched && !apiError && (
-          <div
-            className="flex flex-col items-center justify-center py-24"
-            style={{ color: '#7B7B7B' }}
-          >
-            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="#CFCFCF" strokeWidth="1.5" className="mb-4">
-              <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
-            </svg>
-            <p style={{ fontWeight: 600, fontSize: '15px', color: '#262E3A' }}>
-              Pronto para buscar
-            </p>
-            <p style={{ fontSize: '13px', marginTop: '4px' }}>
-              Preencha os filtros e clique em Procurar
-            </p>
+          <div className="flex justify-center py-24">
+            <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#0a1175' }} />
           </div>
         )}
 
