@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
@@ -63,20 +64,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           className="flex items-center justify-between px-5 py-4"
           style={{ borderBottom: '1px solid #E5E5E5', backgroundColor: '#fff' }}
         >
-          <Link href="/dashboard" className="flex items-center gap-2">
-            {/* Blue square icon with L */}
-            <div
-              className="w-8 h-8 rounded flex items-center justify-center font-bold text-white text-sm"
-              style={{ backgroundColor: '#0a1175' }}
-            >
-              L
-            </div>
-            <span
-              className="text-xl font-bold tracking-tight"
-              style={{ color: '#0a1175' }}
-            >
-              Licitah
-            </span>
+          <Link href="/dashboard" className="flex items-center">
+            <Image
+              src="/logo.png"
+              alt="Licitah"
+              width={130}
+              height={40}
+              style={{ objectFit: 'contain', height: '36px', width: 'auto' }}
+              priority
+            />
           </Link>
           <button
             onClick={onClose}

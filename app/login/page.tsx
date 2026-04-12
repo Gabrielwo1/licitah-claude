@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
+import Image from 'next/image';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
@@ -42,13 +43,17 @@ export default function LoginPage() {
       <div className="w-full max-w-md">
         {/* Logo */}
         <div className="text-center mb-8">
-          <div className="inline-flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#ff6600] rounded-xl flex items-center justify-center font-bold text-white text-xl">
-              L
-            </div>
-            <span className="text-3xl font-bold text-white">Licitah</span>
+          <div className="flex justify-center mb-4">
+            <Image
+              src="/logo.png"
+              alt="Licitah"
+              width={200}
+              height={60}
+              style={{ objectFit: 'contain', height: '52px', width: 'auto', filter: 'brightness(0) invert(1)' }}
+              priority
+            />
           </div>
-          <p className="text-white/70">Plataforma de Licitações</p>
+          <p className="text-white/70 text-sm">Plataforma de Licitações</p>
         </div>
 
         <Card>
