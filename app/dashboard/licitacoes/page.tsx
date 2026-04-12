@@ -100,9 +100,11 @@ export default function LicitacoesPage() {
   const [buscaExata, setBuscaExata] = useState(false);
   const [uf, setUf] = useState('');
   const [cidade, setCidade] = useState('');
+  const [cidades, setCidades] = useState<string[]>([]);
+  const [loadingCidades, setLoadingCidades] = useState(false);
   const [modalidade, setModalidade] = useState('7');
-  const [dataAberturaInicio, setDataAberturaInicio] = useState(threeMonthsAgoISO);
-  const [dataAberturaFim, setDataAberturaFim] = useState(todayISO);
+  const [dataAberturaInicio, setDataAberturaInicio] = useState('');
+  const [dataAberturaFim, setDataAberturaFim] = useState('');
   const [nConciliacao, setNConciliacao] = useState('');
   const [codigoOrgao, setCodigoOrgao] = useState('');
   const [esfera, setEsfera] = useState('');
@@ -125,6 +127,22 @@ export default function LicitacoesPage() {
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState('');
 
+  // Carrega cidades do IBGE quando o estado muda
+  useEffect(() => {
+    if (!uf) {
+      setCidades([]);
+      setCidade('');
+      return;
+    }
+    setLoadingCidades(true);
+    setCidade('');
+    fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
+      .then(r => r.json())
+      .then((data: any[]) => setCidades(data.map(m => m.nome)))
+      .catch(() => setCidades([]))
+      .finally(() => setLoadingCidades(false));
+  }, [uf]);
+
   // Auto-busca ao abrir o módulo
   useEffect(() => {
     if (didAutoSearch.current) return;
@@ -141,12 +159,7 @@ export default function LicitacoesPage() {
       })
     : allLicitacoes;
 
-  // Client-side cidade filter
-  const afterCidade = cidade
-    ? licitacoes.filter((l) =>
-        l.unidadeOrgao?.municipioNome?.toLowerCase().includes(cidade.toLowerCase())
-      )
-    : licitacoes;
+  const afterCidade = licitacoes;
 
   // Client-side sort
   const filtered = [...afterCidade].sort((a, b) => {
@@ -171,11 +184,12 @@ export default function LicitacoesPage() {
       params.set('pagina', String(page));
       params.set('tamanhoPagina', String(PAGE_SIZE));
 
-      params.set('dataInicial', dataAberturaInicio);
-      params.set('dataFinal', dataAberturaFim);
+      if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
+      if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
 
       if (modalidade) params.set('modalidade', modalidade);
       if (uf) params.set('uf', uf);
+      if (cidade) params.set('municipio', cidade);
       if (busca.trim()) params.set('busca', busca.trim());
       if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
 
@@ -271,14 +285,35 @@ export default function LicitacoesPage() {
 
             {/* Cidade */}
             <div style={{ marginBottom: '12px' }}>
-              <label style={fieldLabel}>Cidade</label>
-              <input
-                type="text"
-                value={cidade}
-                onChange={(e) => setCidade(e.target.value)}
-                style={inputStyle}
-                placeholder={uf ? '' : 'Defina o estado'}
-              />
+              <label style={fieldLabel}>
+                Cidade
+                {loadingCidades && (
+                  <span style={{ fontSize: '11px', color: '#7B7B7B', fontWeight: 400, marginLeft: '6px' }}>
+                    carregando...
+                  </span>
+                )}
+              </label>
+              {cidades.length > 0 ? (
+                <select
+                  value={cidade}
+                  onChange={(e) => setCidade(e.target.value)}
+                  style={selectStyle}
+                >
+                  <option value="">Todas as cidades</option>
+                  {cidades.map((c) => (
+                    <option key={c} value={c}>{c}</option>
+                  ))}
+                </select>
+              ) : (
+                <input
+                  type="text"
+                  value={cidade}
+                  onChange={(e) => setCidade(e.target.value)}
+                  style={{ ...inputStyle, color: uf ? '#262E3A' : '#BDBDBD' }}
+                  placeholder={uf ? 'Digite a cidade' : 'Selecione o estado'}
+                  disabled={!!uf && loadingCidades}
+                />
+              )}
             </div>
 
             <hr style={divider} />
