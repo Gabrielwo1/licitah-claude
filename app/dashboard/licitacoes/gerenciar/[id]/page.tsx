@@ -30,6 +30,10 @@ interface Tarefa {
   licitacoes_tarefa_nome: string;
   licitacoes_tarefa_prazo: string | null;
   licitacoes_tarefa_status: number;
+  licitacoes_tarefa_prioridade?: string;
+  licitacoes_tarefa_anotacao?: string;
+  licitacoes_tarefa_subtarefas?: string;
+  licitacoes_tarefa_nome_responsavel?: string;
 }
 
 interface Anotacao {
@@ -214,12 +218,111 @@ function prioColor(p: string | undefined) {
   }
 }
 
+function CalendarDia({ tarefas }: { tarefas: Tarefa[] }) {
+  const today = new Date();
+  const [date, setDate] = useState(today);
+  const dateStr = `${date.getFullYear()}-${String(date.getMonth()+1).padStart(2,'0')}-${String(date.getDate()).padStart(2,'0')}`;
+  const hours = Array.from({ length: 24 }, (_, i) => i);
+  const tasksByHour: Record<number, Tarefa[]> = {};
+  tarefas.forEach(t => {
+    if (!t.licitacoes_tarefa_prazo) return;
+    const d = new Date(t.licitacoes_tarefa_prazo);
+    if (d.toISOString().split('T')[0] === dateStr) {
+      const h = d.getHours();
+      if (!tasksByHour[h]) tasksByHour[h] = [];
+      tasksByHour[h].push(t);
+    }
+  });
+  function prev() { const d = new Date(date); d.setDate(d.getDate()-1); setDate(d); }
+  function next() { const d = new Date(date); d.setDate(d.getDate()+1); setDate(d); }
+  const label = date.toLocaleDateString('pt-BR', { weekday: 'long', day: '2-digit', month: 'long' });
+  return (
+    <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '8px', padding: '16px' }}>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={prev} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B' }}><ChevronLeft className="h-4 w-4" /></button>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: '#262E3A', textTransform: 'capitalize' }}>{label}</span>
+        <button onClick={next} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B' }}><ChevronRight className="h-4 w-4" /></button>
+      </div>
+      <div style={{ maxHeight: '340px', overflowY: 'auto' }}>
+        {hours.map(h => (
+          <div key={h} className="flex gap-2" style={{ minHeight: '36px', borderTop: '1px solid #F0F0F0', padding: '4px 0' }}>
+            <span style={{ fontSize: '11px', color: '#9B9B9B', width: '32px', flexShrink: 0, paddingTop: '2px' }}>{String(h).padStart(2,'0')}:00</span>
+            <div className="flex flex-wrap gap-1 flex-1">
+              {(tasksByHour[h] || []).map(t => (
+                <span key={t.licitacoes_tarefa_id} style={{ fontSize: '10px', backgroundColor: t.licitacoes_tarefa_status===1?'#E8F5E9':'#FFF3E0', color: t.licitacoes_tarefa_status===1?'#259F46':'#FF6600', borderRadius: '3px', padding: '1px 6px' }}>
+                  {t.licitacoes_tarefa_nome}
+                </span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function CalendarSemana({ tarefas }: { tarefas: Tarefa[] }) {
+  const today = new Date();
+  const [weekStart, setWeekStart] = useState(() => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - d.getDay());
+    d.setHours(0,0,0,0);
+    return d;
+  });
+  const days = Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(weekStart);
+    d.setDate(weekStart.getDate() + i);
+    return d;
+  });
+  const daysStr = days.map(d => d.toISOString().split('T')[0]);
+  const tasksByDay: Record<string, Tarefa[]> = {};
+  tarefas.forEach(t => {
+    if (!t.licitacoes_tarefa_prazo) return;
+    const ds = t.licitacoes_tarefa_prazo.split('T')[0];
+    if (!tasksByDay[ds]) tasksByDay[ds] = [];
+    tasksByDay[ds].push(t);
+  });
+  function prev() { const d = new Date(weekStart); d.setDate(d.getDate()-7); setWeekStart(d); }
+  function next() { const d = new Date(weekStart); d.setDate(d.getDate()+7); setWeekStart(d); }
+  const todayStr = today.toISOString().split('T')[0];
+  const endStr = days[6].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  const startStr = days[0].toLocaleDateString('pt-BR', { day: '2-digit', month: 'short' });
+  return (
+    <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '8px', padding: '16px' }}>
+      <div className="flex items-center justify-between mb-3">
+        <button onClick={prev} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B' }}><ChevronLeft className="h-4 w-4" /></button>
+        <span style={{ fontSize: '13px', fontWeight: 700, color: '#262E3A' }}>{startStr} — {endStr}</span>
+        <button onClick={next} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B' }}><ChevronRight className="h-4 w-4" /></button>
+      </div>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', gap: '4px' }}>
+        {days.map((d, i) => {
+          const ds = daysStr[i];
+          const isToday = ds === todayStr;
+          return (
+            <div key={ds} style={{ minHeight: '90px', border: isToday ? '2px solid #FF6600' : '1px solid #F0F0F0', borderRadius: '6px', padding: '6px 4px', backgroundColor: isToday ? '#FFF8F5' : '#fff' }}>
+              <div style={{ fontSize: '10px', fontWeight: 700, color: isToday ? '#FF6600' : '#9B9B9B', textAlign: 'center', marginBottom: '4px' }}>
+                {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'][d.getDay()]} {d.getDate()}
+              </div>
+              {(tasksByDay[ds] || []).map(t => (
+                <div key={t.licitacoes_tarefa_id} style={{ fontSize: '9px', backgroundColor: t.licitacoes_tarefa_status===1?'#E8F5E9':'#FFF3E0', color: t.licitacoes_tarefa_status===1?'#259F46':'#FF6600', borderRadius: '2px', padding: '1px 3px', marginBottom: '2px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {t.licitacoes_tarefa_nome}
+                </div>
+              ))}
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 interface SubItem { nome: string; prazo: string; }
 
 function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
   const [tarefas, setTarefas] = useState<Tarefa[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
+  const [calView, setCalView] = useState<'mes' | 'dia' | 'semana'>('mes');
 
   // Form fields
   const [nome, setNome] = useState('');
@@ -299,8 +402,63 @@ function TarefasTab({ licitacaoId }: { licitacaoId: string }) {
 
   if (loading) return <p style={{ color: '#7B7B7B', fontSize: '14px' }}>Carregando...</p>;
 
+  const now = new Date();
+  const todayStr2 = now.toISOString().split('T')[0];
+  const emProgresso = tarefas.filter(t => t.licitacoes_tarefa_status === 0).length;
+  const concluidas = tarefas.filter(t => t.licitacoes_tarefa_status === 1).length;
+  const tarefasHoje = tarefas.filter(t => t.licitacoes_tarefa_prazo?.split('T')[0] === todayStr2).length;
+  const emAtraso = tarefas.filter(t =>
+    t.licitacoes_tarefa_status === 0 &&
+    t.licitacoes_tarefa_prazo != null &&
+    new Date(t.licitacoes_tarefa_prazo) < now
+  ).length;
+
+  const summaryCards = [
+    { label: 'Em progresso', value: emProgresso, color: '#FF6600', bg: '#FFF3E0' },
+    { label: 'Concluídas',   value: concluidas,  color: '#259F46', bg: '#E8F5E9' },
+    { label: 'Tarefas do dia', value: tarefasHoje, color: '#1976D2', bg: '#E3F2FD' },
+    { label: 'Em atraso',   value: emAtraso,    color: '#FF4500', bg: '#FFF0EB' },
+  ];
+
+  const calTabs: { key: 'mes' | 'dia' | 'semana'; label: string }[] = [
+    { key: 'mes',    label: 'Mês' },
+    { key: 'dia',    label: 'Dia' },
+    { key: 'semana', label: 'Semana' },
+  ];
+
   return (
     <div>
+      {/* Summary cards */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '10px', marginBottom: '20px' }}>
+        {summaryCards.map(c => (
+          <div key={c.label} style={{ backgroundColor: c.bg, borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ fontSize: '22px', fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div style={{ fontSize: '11px', color: '#7B7B7B', marginTop: '2px' }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Calendar section */}
+      <div style={{ marginBottom: '20px' }}>
+        <div className="flex gap-2 mb-3">
+          {calTabs.map(tab => (
+            <button key={tab.key} onClick={() => setCalView(tab.key)}
+              style={{
+                padding: '5px 14px', borderRadius: '6px', fontSize: '12px', fontWeight: 600,
+                border: calView === tab.key ? 'none' : '1px solid #E0E0E0',
+                backgroundColor: calView === tab.key ? '#262E3A' : '#fff',
+                color: calView === tab.key ? '#fff' : '#7B7B7B',
+                cursor: 'pointer',
+              }}>
+              {tab.label}
+            </button>
+          ))}
+        </div>
+        {calView === 'mes'    && <CalendarView tarefas={tarefas} />}
+        {calView === 'dia'    && <CalendarDia tarefas={tarefas} />}
+        {calView === 'semana' && <CalendarSemana tarefas={tarefas} />}
+      </div>
+
       <div className="flex items-center justify-between mb-4">
         <span style={{ fontSize: '14px', color: '#7B7B7B' }}>
           {tarefas.length} tarefa{tarefas.length !== 1 ? 's' : ''}
