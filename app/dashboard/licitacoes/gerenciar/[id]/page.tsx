@@ -12,17 +12,17 @@ import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
-interface LicitacaoDetail {
-  numeroControlePNCP: string;
-  objetoCompra: string;
-  orgaoEntidade?: { razaoSocial: string; cnpj: string };
-  unidadeOrgao?: { municipioNome: string; ufSigla: string };
-  situacaoCompraNome: string;
-  valorTotalEstimado: number | null;
-  dataAberturaProposta: string | null;
-  dataEncerramentoProposta: string | null;
-  sequencialCompra: number;
-  modalidadeNome: string;
+interface LicitacaoSummary {
+  lg_id: number;
+  lg_identificador: string;
+  lg_objeto: string | null;
+  lg_orgao: string | null;
+  lg_cidade: string | null;
+  lg_uf: string | null;
+  lg_valor: number | null;
+  lg_situacao: string | null;
+  lg_data_abertura: string | null;
+  lg_data_encerramento: string | null;
 }
 
 interface Tarefa {
@@ -836,7 +836,7 @@ export default function GerenciarLicitacaoPage() {
   const rawId = params.id as string;
   const licitacaoId = decodeURIComponent(rawId);
 
-  const [licitacao, setLicitacao] = useState<LicitacaoDetail | null>(null);
+  const [licitacao, setLicitacao] = useState<LicitacaoSummary | null>(null);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabKey>('tarefas');
   const [tarefasForCalendar, setTarefasForCalendar] = useState<Tarefa[]>([]);
@@ -844,10 +844,11 @@ export default function GerenciarLicitacaoPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      const res = await fetch(`/api/licitacoes/${encodeURIComponent(licitacaoId)}`);
+      // Busca dados salvos no banco (evita chamada PNCP e problema com / na URL)
+      const res = await fetch(`/api/gerenciadas?identificador=${encodeURIComponent(licitacaoId)}`);
       if (res.ok) {
         const data = await res.json();
-        setLicitacao(data.licitacao);
+        setLicitacao(data.data || null);
       }
       setLoading(false);
     }
@@ -906,56 +907,53 @@ export default function GerenciarLicitacaoPage() {
           </div>
 
           <div className="px-5 py-4">
-            <div style={{ fontSize: '14px', color: '#262E3A', marginBottom: '10px', lineHeight: '1.5' }}>
-              <strong>Objeto:</strong> {licitacao.objetoCompra}
-            </div>
+            {licitacao.lg_objeto && (
+              <div style={{ fontSize: '14px', color: '#262E3A', marginBottom: '10px', lineHeight: '1.5' }}>
+                <strong>Objeto:</strong> {licitacao.lg_objeto}
+              </div>
+            )}
 
-            {(licitacao.dataAberturaProposta || licitacao.dataEncerramentoProposta) && (
+            {(licitacao.lg_data_abertura || licitacao.lg_data_encerramento) && (
               <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '6px' }}>
                 <strong style={{ color: '#262E3A' }}>Datas:</strong>
-                {licitacao.dataAberturaProposta && (
-                  <span style={{ marginLeft: '6px' }}>Abertura: {formatDateTime(licitacao.dataAberturaProposta)}</span>
+                {licitacao.lg_data_abertura && (
+                  <span style={{ marginLeft: '6px' }}>Abertura: {formatDateTime(licitacao.lg_data_abertura)}</span>
                 )}
-                {licitacao.dataEncerramentoProposta && (
-                  <span style={{ marginLeft: '10px' }}>Encerramento: {formatDateTime(licitacao.dataEncerramentoProposta)}</span>
+                {licitacao.lg_data_encerramento && (
+                  <span style={{ marginLeft: '10px' }}>Encerramento: {formatDateTime(licitacao.lg_data_encerramento)}</span>
                 )}
               </div>
             )}
 
-            <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '4px' }}>
-              <strong style={{ color: '#262E3A' }}>Número:</strong>
-              <span style={{ marginLeft: '6px' }}>{licitacao.sequencialCompra}</span>
-            </div>
-
-            {licitacao.orgaoEntidade && (
+            {licitacao.lg_orgao && (
               <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '4px' }}>
                 <strong style={{ color: '#262E3A' }}>Órgão:</strong>
-                <span style={{ marginLeft: '6px' }}>{licitacao.orgaoEntidade.razaoSocial}</span>
+                <span style={{ marginLeft: '6px' }}>{licitacao.lg_orgao}</span>
               </div>
             )}
 
-            {licitacao.unidadeOrgao && (
+            {(licitacao.lg_cidade || licitacao.lg_uf) && (
               <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '12px' }}>
                 <strong style={{ color: '#262E3A' }}>Cidade:</strong>
                 <span style={{ marginLeft: '6px' }}>
-                  {licitacao.unidadeOrgao.municipioNome} - {licitacao.unidadeOrgao.ufSigla}
+                  {licitacao.lg_cidade}{licitacao.lg_uf ? ` - ${licitacao.lg_uf}` : ''}
                 </span>
               </div>
             )}
 
             <div className="flex items-center gap-2 flex-wrap">
-              {licitacao.situacaoCompraNome && (
+              {licitacao.lg_situacao && (
                 <span
                   style={{
-                    ...getSituacaoStyle(licitacao.situacaoCompraNome),
+                    ...getSituacaoStyle(licitacao.lg_situacao),
                     fontSize: '12px', fontWeight: 700,
                     padding: '3px 10px', borderRadius: '4px',
                   }}
                 >
-                  {licitacao.situacaoCompraNome}
+                  {licitacao.lg_situacao}
                 </span>
               )}
-              {licitacao.valorTotalEstimado && licitacao.valorTotalEstimado > 0 && (
+              {licitacao.lg_valor && licitacao.lg_valor > 0 && (
                 <span
                   style={{
                     backgroundColor: '#259F46', color: '#fff',
@@ -963,7 +961,7 @@ export default function GerenciarLicitacaoPage() {
                     padding: '3px 10px', borderRadius: '4px',
                   }}
                 >
-                  Valor estimado: {formatCurrency(licitacao.valorTotalEstimado)}
+                  Valor estimado: {formatCurrency(licitacao.lg_valor)}
                 </span>
               )}
             </div>

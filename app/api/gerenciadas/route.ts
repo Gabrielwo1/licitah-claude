@@ -3,10 +3,23 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
   const userId = (session.user as any).id;
+
+  const { searchParams } = new URL(req.url);
+  const identificador = searchParams.get('identificador');
+
+  // Busca por identificador específico
+  if (identificador) {
+    const rows = await sql`
+      SELECT * FROM licitacoes_gerenciadas
+      WHERE lg_conta = ${userId} AND lg_identificador = ${identificador}
+      LIMIT 1
+    `;
+    return NextResponse.json({ data: rows[0] || null });
+  }
 
   const rows = await sql`
     SELECT * FROM licitacoes_gerenciadas

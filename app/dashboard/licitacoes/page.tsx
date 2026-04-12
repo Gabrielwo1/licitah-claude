@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
 import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
+import { getCached, setCache } from '@/lib/licitacoes-cache';
 
 const MODALIDADES = [
   { value: '', label: 'Todas as modalidades' },
@@ -203,6 +204,21 @@ export default function LicitacoesPage() {
       if (termoBusca) params.set('busca', termoBusca);
       if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
 
+      // ── Cache check ──
+      const cacheParams: Record<string, string> = {};
+      params.forEach((v, k) => { cacheParams[k] = v; });
+      const cached = getCached(cacheParams);
+      if (cached) {
+        setAllLicitacoes(cached);
+        setTotal(cached.length);
+        setTotalPaginas(1);
+        setHasMore(false);
+        setPagina(page);
+        setSearched(true);
+        setLoading(false);
+        return;
+      }
+
       const res = await fetch(`/api/licitacoes?${params.toString()}`);
       const json = await res.json();
 
@@ -210,10 +226,13 @@ export default function LicitacoesPage() {
         setApiError('A API do governo está temporariamente indisponível. Tente novamente em alguns instantes.');
         setAllLicitacoes([]);
       } else {
-        setAllLicitacoes(json.data || []);
+        const data = json.data || [];
+        setAllLicitacoes(data);
         setTotal(json.totalRegistros || 0);
         setTotalPaginas(json.totalPaginas || 1);
         setHasMore(json.paginasRestantes || false);
+        // Salva no cache da sessão
+        if (data.length > 0) setCache(cacheParams, data);
       }
       setPagina(page);
       setSearched(true);
