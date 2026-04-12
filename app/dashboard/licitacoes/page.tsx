@@ -100,7 +100,8 @@ export default function LicitacoesPage() {
   const [buscaExata, setBuscaExata] = useState(false);
   const [uf, setUf] = useState('');
   const [cidade, setCidade] = useState('');
-  const [cidades, setCidades] = useState<string[]>([]);
+  const [codigoIbge, setCodigoIbge] = useState('');
+  const [cidades, setCidades] = useState<{ nome: string; id: string }[]>([]);
   const [loadingCidades, setLoadingCidades] = useState(false);
   const [modalidade, setModalidade] = useState('');
   const [dataAberturaInicio, setDataAberturaInicio] = useState('');
@@ -133,13 +134,15 @@ export default function LicitacoesPage() {
     if (!uf) {
       setCidades([]);
       setCidade('');
+      setCodigoIbge('');
       return;
     }
     setLoadingCidades(true);
     setCidade('');
+    setCodigoIbge('');
     fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
       .then(r => r.json())
-      .then((data: any[]) => setCidades(data.map(m => m.nome)))
+      .then((data: any[]) => setCidades(data.map(m => ({ nome: m.nome, id: String(m.id) }))))
       .catch(() => setCidades([]))
       .finally(() => setLoadingCidades(false));
   }, [uf]);
@@ -191,6 +194,7 @@ export default function LicitacoesPage() {
       if (modalidade) params.set('modalidade', modalidade);
       if (uf) params.set('uf', uf);
       if (cidade) params.set('municipio', cidade);
+      if (codigoIbge) params.set('codigoIbge', codigoIbge);
       // Combina busca manual com oportunidades selecionadas
       const termoBusca = [
         busca.trim(),
@@ -302,12 +306,16 @@ export default function LicitacoesPage() {
               {cidades.length > 0 ? (
                 <select
                   value={cidade}
-                  onChange={(e) => setCidade(e.target.value)}
+                  onChange={(e) => {
+                    const selected = cidades.find(c => c.nome === e.target.value);
+                    setCidade(e.target.value);
+                    setCodigoIbge(selected?.id || '');
+                  }}
                   style={selectStyle}
                 >
                   <option value="">Todas as cidades</option>
                   {cidades.map((c) => (
-                    <option key={c} value={c}>{c}</option>
+                    <option key={c.id} value={c.nome}>{c.nome}</option>
                   ))}
                 </select>
               ) : (

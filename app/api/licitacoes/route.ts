@@ -4,7 +4,7 @@ import { authOptions } from '@/lib/auth';
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 
-// Modalidades mais usadas no Brasil — buscadas em paralelo quando "todas" selecionado
+// Modalidades mais usadas — buscadas em paralelo quando "todas" selecionado
 const MODALIDADES_TODAS = ['7', '8', '14', '5', '6', '15', '11'];
 
 function toAPIDate(dateStr: string): string {
@@ -28,7 +28,8 @@ async function fetchModalidade(
   pagina: number,
   tamanhoPagina: number,
   uf: string,
-  timeoutMs = 7000
+  codigoIbge: string,
+  timeoutMs = 9000
 ): Promise<any[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -41,6 +42,7 @@ async function fetchModalidade(
     codigoModalidadeContratacao: modalidade,
   });
   if (uf) params.set('uf', uf);
+  if (codigoIbge) params.set('codigoMunicipioIbge', codigoIbge);
 
   try {
     const res = await fetch(`${PNCP_API}?${params.toString()}`, {
@@ -67,6 +69,7 @@ export async function GET(req: NextRequest) {
   const tamanhoPagina = Math.max(10, Math.min(50, parseInt(searchParams.get('tamanhoPagina') || '20')));
   const uf = searchParams.get('uf') || '';
   const municipio = searchParams.get('municipio') || '';
+  const codigoIbge = searchParams.get('codigoIbge') || '';
   const busca = searchParams.get('busca') || '';
   const modalidadeParam = searchParams.get('modalidade') || '';
 
@@ -76,16 +79,21 @@ export async function GET(req: NextRequest) {
   const dataInicial = toAPIDate(rawInicial);
   const dataFinal = toAPIDate(rawFinal);
 
+  // Quando há filtro de cidade, buscar o máximo possível por request
+  const subPageSize = (codigoIbge || municipio) ? 50 : Math.min(50, tamanhoPagina);
+
   let data: any[] = [];
 
   if (modalidadeParam && modalidadeParam !== 'all') {
     // Modalidade específica — 1 request
-    data = await fetchModalidade(modalidadeParam, dataInicial, dataFinal, pagina, tamanhoPagina, uf);
+    data = await fetchModalidade(
+      modalidadeParam, dataInicial, dataFinal, pagina, tamanhoPagina, uf, codigoIbge
+    );
   } else {
-    // Todas as modalidades — busca em paralelo e combina
+    // Todas as modalidades — paralelo
     const results = await Promise.allSettled(
       MODALIDADES_TODAS.map(m =>
-        fetchModalidade(m, dataInicial, dataFinal, 1, Math.ceil(tamanhoPagina / 3), uf)
+        fetchModalidade(m, dataInicial, dataFinal, 1, subPageSize, uf, codigoIbge)
       )
     );
     results.forEach(r => {
@@ -101,13 +109,15 @@ export async function GET(req: NextRequest) {
     });
   }
 
-  // Filtros client-side
-  if (municipio) {
+  // Filtro client-side por cidade (nome) — fallback se codigoIbge não funcionou
+  if (municipio && !codigoIbge) {
     const m = municipio.toLowerCase();
     data = data.filter((l: any) =>
       l.unidadeOrgao?.municipioNome?.toLowerCase().includes(m)
     );
   }
+
+  // Filtro client-side por busca/objeto
   if (busca) {
     const bl = busca.toLowerCase();
     data = data.filter((l: any) =>
