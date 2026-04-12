@@ -72,6 +72,13 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  // Ordena da mais recente para a mais antiga (dataAtualizacaoPncp > dataPublicacaoPncp)
+  data.sort((a: any, b: any) => {
+    const da = new Date(a.dataAtualizacaoPncp || a.dataPublicacaoPncp || 0).getTime();
+    const db = new Date(b.dataAtualizacaoPncp || b.dataPublicacaoPncp || 0).getTime();
+    return db - da;
+  });
+
   return NextResponse.json({
     data,
     totalRegistros: json.totalRegistros || 0,
