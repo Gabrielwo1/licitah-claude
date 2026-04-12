@@ -116,7 +116,7 @@ export default function LicitacoesPage() {
 
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [sortBy, setSortBy] = useState<'recente' | 'maior' | 'menor'>('recente');
+  const [sortBy, setSortBy] = useState<'recente' | 'antiga' | 'maior' | 'menor'>('recente');
   const didAutoSearch = useRef(false);
   const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
   const [total, setTotal] = useState(0);
@@ -149,19 +149,25 @@ export default function LicitacoesPage() {
     : licitacoes;
 
   // Client-side sort
+  const now = Date.now();
   const filtered = [...afterCidade].sort((a, b) => {
     if (sortBy === 'maior') return (b.valorTotalEstimado ?? -1) - (a.valorTotalEstimado ?? -1);
     if (sortBy === 'menor') {
-      // Put nulls last
       if (!a.valorTotalEstimado && !b.valorTotalEstimado) return 0;
       if (!a.valorTotalEstimado) return 1;
       if (!b.valorTotalEstimado) return -1;
       return a.valorTotalEstimado - b.valorTotalEstimado;
     }
-    // recente: by dataAtualizacaoPncp or dataPublicacaoPncp desc
-    const da = new Date((a as any).dataAtualizacaoPncp || a.dataPublicacaoPncp || 0).getTime();
-    const db = new Date((b as any).dataAtualizacaoPncp || b.dataPublicacaoPncp || 0).getTime();
-    return db - da;
+    const dateA = (a as any).dataAtualizacaoPncp || a.dataPublicacaoPncp || 0;
+    const dateB = (b as any).dataAtualizacaoPncp || b.dataPublicacaoPncp || 0;
+    const da = new Date(dateA).getTime();
+    const db = new Date(dateB).getTime();
+    if (sortBy === 'recente') {
+      // Mais próxima do momento presente primeiro
+      return Math.abs(db - now) - Math.abs(da - now);
+    }
+    // antiga: mais distante do presente primeiro (data mais antiga)
+    return da - db;
   });
 
   async function fetchLicitacoes(page = 1) {
@@ -554,6 +560,7 @@ export default function LicitacoesPage() {
               <div className="flex items-center gap-1.5">
                 {([
                   { key: 'recente', label: 'Mais recentes' },
+                  { key: 'antiga',  label: 'Mais antigas' },
                   { key: 'maior',   label: 'Maior valor' },
                   { key: 'menor',   label: 'Menor valor' },
                 ] as const).map(({ key, label }) => (
