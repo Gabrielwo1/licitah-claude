@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import {
@@ -915,11 +915,14 @@ function AnexosTab({ licitacaoId }: { licitacaoId: string }) {
 function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
   const [habilitacoes, setHabilitacoes] = useState<Habilitacao[]>([]);
   const [loading, setLoading] = useState(true);
+  const [showModal, setShowModal] = useState(false);
   const [nome, setNome] = useState('');
-  const [documento, setDocumento] = useState('');
   const [dataValidade, setDataValidade] = useState('');
+  const [file, setFile] = useState<File | null>(null);
+  const [dragging, setDragging] = useState(false);
   const [saving, setSaving] = useState(false);
-  const [showForm, setShowForm] = useState(false);
+  const [toast, setToast] = useState<string | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchHabilitacoes = useCallback(async () => {
     setLoading(true);
@@ -930,20 +933,35 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
 
   useEffect(() => { fetchHabilitacoes(); }, [fetchHabilitacoes]);
 
+  function resetModal() {
+    setNome(''); setDataValidade(''); setFile(null); setShowModal(false);
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault(); setDragging(false);
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  }
+
   async function addHabilitacao() {
     if (!nome.trim()) return;
     setSaving(true);
+    const fileName = file ? file.name : '';
     const res = await fetch('/api/habilitacoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ nome: nome.trim(), documento, dataValidade: dataValidade || null, licitacaoGoverno: licitacaoId }),
+      body: JSON.stringify({
+        nome: nome.trim(),
+        documento: fileName,
+        dataValidade: dataValidade || null,
+        licitacaoGoverno: licitacaoId,
+      }),
     });
     if (res.ok) {
-      setNome('');
-      setDocumento('');
-      setDataValidade('');
-      setShowForm(false);
+      resetModal();
       fetchHabilitacoes();
+      setToast('Documento salvo com sucesso!');
+      setTimeout(() => setToast(null), 3500);
     }
     setSaving(false);
   }
@@ -953,138 +971,198 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
     setHabilitacoes(prev => prev.filter(x => x.licitacoes_habilitacao_id !== id));
   }
 
+  const inp: React.CSSProperties = {
+    border: '1px solid #E0E0E0', borderRadius: '8px', padding: '10px 14px',
+    fontSize: '14px', outline: 'none', color: '#262E3A', backgroundColor: '#fff',
+    width: '100%', boxSizing: 'border-box',
+  };
+
   if (loading) return <p style={{ color: '#7B7B7B', fontSize: '14px' }}>Carregando...</p>;
 
   return (
     <div>
+      {/* Toast */}
+      {toast && (
+        <div style={{ position: 'fixed', bottom: '28px', right: '28px', zIndex: 2000, backgroundColor: '#259F46', color: '#fff', borderRadius: '10px', padding: '14px 22px', fontSize: '14px', fontWeight: 600, boxShadow: '0 8px 30px rgba(0,0,0,0.18)', display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Check className="h-4 w-4" /> {toast}
+        </div>
+      )}
+
+      {/* Header */}
       <div className="flex justify-end mb-4">
         <button
-          onClick={() => setShowForm(v => !v)}
+          onClick={() => setShowModal(true)}
           className="flex items-center gap-1.5"
-          style={{
-            backgroundColor: '#FF6600', color: '#fff', border: 'none',
-            borderRadius: '6px', padding: '7px 14px', fontSize: '13px',
-            fontWeight: 600, cursor: 'pointer',
-          }}
+          style={{ backgroundColor: '#FF6600', color: '#fff', border: 'none', borderRadius: '6px', padding: '7px 16px', fontSize: '13px', fontWeight: 600, cursor: 'pointer' }}
         >
-          <Plus className="h-3.5 w-3.5" />
-          Novo documento
+          <Plus className="h-3.5 w-3.5" /> Adicionar documento
         </button>
       </div>
 
-      {showForm && (
-        <div
-          style={{
-            backgroundColor: '#F9F9F9', border: '1px solid #E8E8E8',
-            borderRadius: '8px', padding: '16px', marginBottom: '16px',
-          }}
-        >
-          <div className="flex flex-col gap-3">
-            <input
-              type="text"
-              placeholder="Nome do documento de habilitação"
-              value={nome}
-              onChange={e => setNome(e.target.value)}
-              style={{
-                border: '1px solid #CFCFCF', borderRadius: '6px',
-                padding: '8px 12px', fontSize: '13px', outline: 'none', width: '100%',
-              }}
-            />
-            <input
-              type="text"
-              placeholder="Descrição ou número do documento"
-              value={documento}
-              onChange={e => setDocumento(e.target.value)}
-              style={{
-                border: '1px solid #CFCFCF', borderRadius: '6px',
-                padding: '8px 12px', fontSize: '13px', outline: 'none', width: '100%',
-              }}
-            />
-            <div>
-              <label style={{ fontSize: '12px', color: '#7B7B7B', display: 'block', marginBottom: '4px' }}>
-                Validade
-              </label>
-              <input
-                type="date"
-                value={dataValidade}
-                onChange={e => setDataValidade(e.target.value)}
-                style={{
-                  border: '1px solid #CFCFCF', borderRadius: '6px',
-                  padding: '8px 12px', fontSize: '13px', outline: 'none', width: '200px',
-                }}
-              />
-            </div>
-            <div className="flex gap-2">
-              <button
-                onClick={addHabilitacao}
-                disabled={saving || !nome.trim()}
-                style={{
-                  backgroundColor: '#262E3A', color: '#fff', border: 'none',
-                  borderRadius: '6px', padding: '7px 16px', fontSize: '13px',
-                  fontWeight: 600, cursor: 'pointer',
-                }}
-              >
-                {saving ? 'Salvando...' : 'Salvar'}
-              </button>
-              <button
-                onClick={() => setShowForm(false)}
-                style={{
-                  backgroundColor: 'transparent', color: '#7B7B7B',
-                  border: '1px solid #CFCFCF', borderRadius: '6px',
-                  padding: '7px 16px', fontSize: '13px', cursor: 'pointer',
-                }}
-              >
-                Cancelar
+      {/* Modal */}
+      {showModal && (
+        <div onClick={resetModal} style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div onClick={e => e.stopPropagation()} style={{ backgroundColor: '#fff', borderRadius: '16px', padding: '32px', width: '100%', maxWidth: '560px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}>
+            {/* Modal header */}
+            <div className="flex items-center justify-between" style={{ marginBottom: '24px' }}>
+              <span style={{ fontSize: '18px', fontWeight: 800, color: '#262E3A', letterSpacing: '-0.3px' }}>ADICIONE UM DOCUMENTO</span>
+              <button onClick={resetModal} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B' }}>
+                <X className="h-5 w-5" />
               </button>
             </div>
+
+            {/* Nome + Validade */}
+            <div className="flex gap-3" style={{ marginBottom: '16px' }}>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Nome do Anexo</label>
+                <input type="text" placeholder="Nome Do Anexo" value={nome} onChange={e => setNome(e.target.value)} style={inp} />
+              </div>
+              <div style={{ flex: 1 }}>
+                <label style={{ fontSize: '12px', fontWeight: 600, color: '#262E3A', display: 'block', marginBottom: '6px' }}>Data de Validade</label>
+                <input type="date" value={dataValidade} onChange={e => setDataValidade(e.target.value)} style={inp} />
+              </div>
+            </div>
+
+            {/* Drop zone */}
+            <div
+              onClick={() => fileInputRef.current?.click()}
+              onDragOver={e => { e.preventDefault(); setDragging(true); }}
+              onDragLeave={() => setDragging(false)}
+              onDrop={onDrop}
+              style={{
+                border: `2px dashed ${dragging ? '#FF6600' : '#CFCFCF'}`,
+                borderRadius: '10px',
+                padding: '32px 16px',
+                textAlign: 'center',
+                cursor: 'pointer',
+                backgroundColor: dragging ? '#FFF8F5' : '#FAFAFA',
+                marginBottom: '24px',
+                transition: 'all .2s',
+              }}
+            >
+              <input ref={fileInputRef} type="file" accept=".pdf,.doc,.docx,.png,.jpg,.jpeg" style={{ display: 'none' }} onChange={e => { const f = e.target.files?.[0]; if (f) setFile(f); }} />
+              {file ? (
+                <div>
+                  <Paperclip className="h-6 w-6 mx-auto" style={{ color: '#FF6600', marginBottom: '6px' }} />
+                  <p style={{ fontSize: '13px', color: '#262E3A', fontWeight: 600 }}>{file.name}</p>
+                  <p style={{ fontSize: '11px', color: '#9B9B9B' }}>{(file.size / 1024).toFixed(1)} KB</p>
+                </div>
+              ) : (
+                <p style={{ fontSize: '14px', color: '#9B9B9B' }}>Arraste ou solte seu arquivo aqui</p>
+              )}
+            </div>
+
+            {/* Documentos salvos */}
+            {habilitacoes.length > 0 && (
+              <div style={{ marginBottom: '24px' }}>
+                <p style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A', marginBottom: '12px' }}>Documentos salvos</p>
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+                  <thead>
+                    <tr style={{ borderBottom: '1px solid #F0F0F0' }}>
+                      {['Nome do arquivo', 'Arquivo', 'Anexado em', 'Opções'].map(h => (
+                        <th key={h} style={{ textAlign: 'left', padding: '6px 8px', fontSize: '12px', fontWeight: 700, color: '#262E3A' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {habilitacoes.map(h => {
+                      const vencido = h.licitacoes_habilitacao_data_validade
+                        ? new Date(h.licitacoes_habilitacao_data_validade) < new Date() : false;
+                      return (
+                        <tr key={h.licitacoes_habilitacao_id} style={{ borderBottom: '1px solid #F8F8F8' }}>
+                          <td style={{ padding: '8px', color: vencido ? '#FF4500' : '#262E3A', fontWeight: 500 }}>
+                            {h.licitacoes_habilitacao_nome}
+                            {vencido && <span style={{ fontSize: '10px', color: '#FF4500', marginLeft: '6px' }}>VENCIDO</span>}
+                          </td>
+                          <td style={{ padding: '8px', color: '#7B7B7B', maxWidth: '140px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                            {h.licitacoes_habilitacao_documento || '—'}
+                          </td>
+                          <td style={{ padding: '8px', color: '#9B9B9B', whiteSpace: 'nowrap' }}>
+                            {h.licitacoes_habilitacao_data_validade ? formatDate(h.licitacoes_habilitacao_data_validade) : '—'}
+                          </td>
+                          <td style={{ padding: '8px' }}>
+                            <div className="flex gap-1">
+                              <button
+                                title="Visualizar"
+                                style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                              >
+                                <ExternalLink className="h-3.5 w-3.5" />
+                              </button>
+                              <button
+                                onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)}
+                                title="Excluir"
+                                style={{ backgroundColor: '#FF4500', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}
+                              >
+                                <Trash2 className="h-3.5 w-3.5" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+
+            {/* Salvar */}
+            <button
+              onClick={addHabilitacao}
+              disabled={saving || !nome.trim()}
+              style={{ width: '100%', backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '10px', padding: '14px', fontSize: '15px', fontWeight: 700, cursor: 'pointer', opacity: saving || !nome.trim() ? 0.6 : 1 }}
+            >
+              {saving ? 'Salvando...' : 'Salvar'}
+            </button>
           </div>
         </div>
       )}
 
+      {/* Table view outside modal */}
       {habilitacoes.length === 0 ? (
         <p style={{ color: '#9B9B9B', fontSize: '13px' }}>Nenhum documento de habilitação ainda.</p>
       ) : (
-        <div className="space-y-2">
-          {habilitacoes.map(h => {
-            const vencido = h.licitacoes_habilitacao_data_validade
-              ? new Date(h.licitacoes_habilitacao_data_validade) < new Date()
-              : false;
-
-            return (
-              <div
-                key={h.licitacoes_habilitacao_id}
-                className="flex items-center gap-3"
-                style={{
-                  backgroundColor: '#fff', border: '1px solid #E8E8E8',
-                  borderRadius: '6px', padding: '10px 14px',
-                }}
-              >
-                <ShieldCheck className="h-4 w-4 shrink-0" style={{ color: vencido ? '#FF4500' : '#259F46' }} />
-                <div className="flex-1 min-w-0">
-                  <div style={{ fontSize: '13px', color: '#262E3A', fontWeight: 600 }}>
-                    {h.licitacoes_habilitacao_nome}
-                  </div>
-                  {h.licitacoes_habilitacao_documento && (
-                    <div style={{ fontSize: '12px', color: '#7B7B7B' }}>{h.licitacoes_habilitacao_documento}</div>
-                  )}
-                  {h.licitacoes_habilitacao_data_validade && (
-                    <div style={{ fontSize: '11px', color: vencido ? '#FF4500' : '#9B9B9B' }}>
-                      Validade: {formatDate(h.licitacoes_habilitacao_data_validade)}
-                      {vencido && ' — VENCIDO'}
-                    </div>
-                  )}
-                </div>
-                <button
-                  onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)}
-                  style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: '2px' }}
-                  onMouseEnter={e => ((e.currentTarget as HTMLElement).style.color = '#FF4500')}
-                  onMouseLeave={e => ((e.currentTarget as HTMLElement).style.color = '#CFCFCF')}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </button>
-              </div>
-            );
-          })}
+        <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '10px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#F9F9F9', borderBottom: '1px solid #E8E8E8' }}>
+                {['Nome do arquivo', 'Arquivo', 'Validade', 'Status', 'Opções'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '12px 16px', fontSize: '12px', fontWeight: 700, color: '#262E3A' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {habilitacoes.map(h => {
+                const vencido = h.licitacoes_habilitacao_data_validade
+                  ? new Date(h.licitacoes_habilitacao_data_validade) < new Date() : false;
+                return (
+                  <tr key={h.licitacoes_habilitacao_id} style={{ borderBottom: '1px solid #F0F0F0' }}>
+                    <td style={{ padding: '12px 16px', fontWeight: 600, color: '#262E3A' }}>{h.licitacoes_habilitacao_nome}</td>
+                    <td style={{ padding: '12px 16px', color: '#7B7B7B', maxWidth: '160px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                      {h.licitacoes_habilitacao_documento || '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px', color: '#9B9B9B', whiteSpace: 'nowrap' }}>
+                      {h.licitacoes_habilitacao_data_validade ? formatDate(h.licitacoes_habilitacao_data_validade) : '—'}
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '3px 8px', borderRadius: '4px', backgroundColor: vencido ? '#FFF0EB' : '#E8F5E9', color: vencido ? '#FF4500' : '#259F46' }}>
+                        {vencido ? 'Vencido' : 'Válido'}
+                      </span>
+                    </td>
+                    <td style={{ padding: '12px 16px' }}>
+                      <div className="flex gap-1">
+                        <button title="Visualizar" style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                          <ExternalLink className="h-3.5 w-3.5" />
+                        </button>
+                        <button onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)} title="Excluir" style={{ backgroundColor: '#FF4500', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </div>
