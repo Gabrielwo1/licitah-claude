@@ -7,7 +7,7 @@ import { Licitacao } from '@/lib/types';
 import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
 
 const MODALIDADES = [
-  { value: '', label: 'Selecione um opção' },
+  { value: '', label: 'Todas as modalidades' },
   { value: '7', label: 'Pregão Eletrônico' },
   { value: '8', label: 'Pregão Presencial' },
   { value: '5', label: 'Concorrência Eletrônica' },
@@ -102,7 +102,7 @@ export default function LicitacoesPage() {
   const [cidade, setCidade] = useState('');
   const [cidades, setCidades] = useState<string[]>([]);
   const [loadingCidades, setLoadingCidades] = useState(false);
-  const [modalidade, setModalidade] = useState('7');
+  const [modalidade, setModalidade] = useState('');
   const [dataAberturaInicio, setDataAberturaInicio] = useState('');
   const [dataAberturaFim, setDataAberturaFim] = useState('');
   const [nConciliacao, setNConciliacao] = useState('');

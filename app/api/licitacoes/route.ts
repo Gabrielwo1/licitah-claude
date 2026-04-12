@@ -3,7 +3,9 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
-const TIMEOUT_MS = 10000;
+
+// Modalidades mais usadas no Brasil — buscadas em paralelo quando "todas" selecionado
+const MODALIDADES_TODAS = ['7', '8', '14', '5', '6', '15', '11'];
 
 function toAPIDate(dateStr: string): string {
   return dateStr.replace(/-/g, '');
@@ -15,25 +17,44 @@ function threeMonthsAgo(): string {
   return d.toISOString().split('T')[0];
 }
 
-function today(): string {
+function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-async function fetchWithTimeout(url: string, timeoutMs = TIMEOUT_MS) {
+async function fetchModalidade(
+  modalidade: string,
+  dataInicial: string,
+  dataFinal: string,
+  pagina: number,
+  tamanhoPagina: number,
+  uf: string,
+  timeoutMs = 7000
+): Promise<any[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
+
+  const params = new URLSearchParams({
+    dataInicial,
+    dataFinal,
+    pagina: String(pagina),
+    tamanhoPagina: String(tamanhoPagina),
+    codigoModalidadeContratacao: modalidade,
+  });
+  if (uf) params.set('uf', uf);
+
   try {
-    const res = await fetch(url, {
+    const res = await fetch(`${PNCP_API}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
       next: { revalidate: 60 },
     });
     clearTimeout(timer);
-    if (!res.ok) return null;
-    return await res.json();
+    if (!res.ok) return [];
+    const json = await res.json();
+    return json.data || [];
   } catch {
     clearTimeout(timer);
-    return null;
+    return [];
   }
 }
 
@@ -51,33 +72,36 @@ export async function GET(req: NextRequest) {
 
   // Datas — padrão: últimos 3 meses
   const rawInicial = searchParams.get('dataInicial') || threeMonthsAgo();
-  const rawFinal = searchParams.get('dataFinal') || today();
+  const rawFinal = searchParams.get('dataFinal') || todayStr();
   const dataInicial = toAPIDate(rawInicial);
   const dataFinal = toAPIDate(rawFinal);
 
-  // Modalidade — padrão: Pregão Eletrônico
-  const modalidade = (modalidadeParam && modalidadeParam !== 'all') ? modalidadeParam : '7';
+  let data: any[] = [];
 
-  // Monta URL com filtros suportados pela API do PNCP
-  const params = new URLSearchParams({
-    dataInicial,
-    dataFinal,
-    pagina: String(pagina),
-    tamanhoPagina: String(tamanhoPagina),
-    codigoModalidadeContratacao: modalidade,
-  });
-  if (uf) params.set('uf', uf);
+  if (modalidadeParam && modalidadeParam !== 'all') {
+    // Modalidade específica — 1 request
+    data = await fetchModalidade(modalidadeParam, dataInicial, dataFinal, pagina, tamanhoPagina, uf);
+  } else {
+    // Todas as modalidades — busca em paralelo e combina
+    const results = await Promise.allSettled(
+      MODALIDADES_TODAS.map(m =>
+        fetchModalidade(m, dataInicial, dataFinal, 1, Math.ceil(tamanhoPagina / 3), uf)
+      )
+    );
+    results.forEach(r => {
+      if (r.status === 'fulfilled') data.push(...r.value);
+    });
 
-  const url = `${PNCP_API}?${params.toString()}`;
-  const json = await fetchWithTimeout(url);
-
-  if (!json) {
-    return NextResponse.json({ data: [], totalRegistros: 0, paginasRestantes: false, error: 'API indisponível' });
+    // Remove duplicados pelo numeroControlePNCP
+    const seen = new Set<string>();
+    data = data.filter(l => {
+      if (seen.has(l.numeroControlePNCP)) return false;
+      seen.add(l.numeroControlePNCP);
+      return true;
+    });
   }
 
-  let data: any[] = json.data || [];
-
-  // Filtros client-side (campos não suportados diretamente pela API)
+  // Filtros client-side
   if (municipio) {
     const m = municipio.toLowerCase();
     data = data.filter((l: any) =>
@@ -92,7 +116,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Ordena por data de abertura mais recente primeiro (padrão)
+  // Ordena por data de abertura mais recente primeiro
   data.sort((a: any, b: any) => {
     const da = new Date(a.dataAberturaProposta || a.dataPublicacaoPncp || 0).getTime();
     const db = new Date(b.dataAberturaProposta || b.dataPublicacaoPncp || 0).getTime();
@@ -101,8 +125,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     data,
-    totalRegistros: json.totalRegistros || 0,
-    totalPaginas: json.totalPaginas || 1,
-    paginasRestantes: json.paginasRestantes || false,
+    totalRegistros: data.length,
+    totalPaginas: 1,
+    paginasRestantes: false,
   });
 }
