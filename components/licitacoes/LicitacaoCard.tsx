@@ -1,6 +1,7 @@
 'use client';
 
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { Heart, Settings, ExternalLink, List } from 'lucide-react';
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
@@ -34,8 +35,35 @@ export function LicitacaoCard({
   isFavorite = false,
   onFavoriteToggle,
 }: LicitacaoCardProps) {
+  const router = useRouter();
   const [fav, setFav] = useState(isFavorite);
   const [favLoading, setFavLoading] = useState(false);
+  const [gerenciandoLoading, setGerenciandoLoading] = useState(false);
+
+  async function handleGerenciar(e: React.MouseEvent) {
+    e.preventDefault();
+    setGerenciandoLoading(true);
+    try {
+      await fetch('/api/gerenciadas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          identificador: licitacao.numeroControlePNCP,
+          objeto: licitacao.objetoCompra,
+          orgao: licitacao.orgaoEntidade?.razaoSocial,
+          cidade: licitacao.unidadeOrgao?.municipioNome,
+          uf: licitacao.unidadeOrgao?.ufSigla,
+          valor: licitacao.valorTotalEstimado,
+          situacao: licitacao.situacaoCompraNome,
+          dataAbertura: licitacao.dataAberturaProposta,
+          dataEncerramento: licitacao.dataEncerramentoProposta,
+        }),
+      });
+    } finally {
+      setGerenciandoLoading(false);
+    }
+    router.push(`/dashboard/licitacoes/gerenciar/${encodeURIComponent(licitacao.numeroControlePNCP)}`);
+  }
 
   async function toggleFavorite(e: React.MouseEvent) {
     e.preventDefault();
@@ -205,25 +233,26 @@ export function LicitacaoCard({
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">
           {/* Gerenciar licitação */}
-          <Link href={detailHref}>
-            <button
-              className="flex items-center gap-1.5 font-semibold transition-colors"
-              style={{
-                backgroundColor: '#262E3A',
-                color: '#fff',
-                fontSize: '13px',
-                padding: '7px 14px',
-                borderRadius: '6px',
-                border: 'none',
-                cursor: 'pointer',
-              }}
-              onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#1a2029')}
-              onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#262E3A')}
-            >
-              <Settings className="h-3.5 w-3.5" />
-              Gerenciar licitação
-            </button>
-          </Link>
+          <button
+            onClick={handleGerenciar}
+            disabled={gerenciandoLoading}
+            className="flex items-center gap-1.5 font-semibold transition-colors"
+            style={{
+              backgroundColor: '#262E3A',
+              color: '#fff',
+              fontSize: '13px',
+              padding: '7px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: gerenciandoLoading ? 'wait' : 'pointer',
+              opacity: gerenciandoLoading ? 0.7 : 1,
+            }}
+            onMouseEnter={e => { if (!gerenciandoLoading) (e.currentTarget.style.backgroundColor = '#1a2029'); }}
+            onMouseLeave={e => { if (!gerenciandoLoading) (e.currentTarget.style.backgroundColor = '#262E3A'); }}
+          >
+            <Settings className="h-3.5 w-3.5" />
+            {gerenciandoLoading ? 'Abrindo...' : 'Gerenciar licitação'}
+          </button>
 
           {/* Consultar edital */}
           {pncpUrl && (

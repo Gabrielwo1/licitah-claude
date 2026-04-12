@@ -6,13 +6,14 @@ import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
   LayoutDashboard, Search, Target, CheckSquare, Star, Building2,
-  User, CreditCard, Bell, ShieldCheck, LogOut, X, Menu
+  User, CreditCard, Bell, ShieldCheck, LogOut, X, Menu, Briefcase
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
 const navItems = [
   { href: '/dashboard', label: 'Início', icon: LayoutDashboard },
   { href: '/dashboard/licitacoes', label: 'Licitações', icon: Search },
+  { href: '/dashboard/minhas-licitacoes', label: 'Minhas Licitações', icon: Briefcase },
   { href: '/dashboard/oportunidades', label: 'Oportunidades', icon: Target },
   { href: '/dashboard/tarefas', label: 'Tarefas', icon: CheckSquare },
   { href: '/dashboard/favoritos', label: 'Favoritos', icon: Star },

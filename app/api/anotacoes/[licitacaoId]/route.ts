@@ -11,7 +11,7 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ lici
   const licitacaoIdDecoded = decodeURIComponent(licitacaoId);
 
   const anotacoes = await sql`
-    SELECT a.*, u.usuario_nome as autor_nome
+    SELECT a.*, u.usuario_display as autor_nome
     FROM licitacoes_anotacoes a
     LEFT JOIN usuarios u ON u.usuario_id = a.licitacoes_anotacao_autor
     WHERE a.licitacoes_anotacao_licitacao_governo = ${licitacaoIdDecoded}
