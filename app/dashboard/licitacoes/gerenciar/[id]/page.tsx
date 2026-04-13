@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, CheckSquare, FileText, Paperclip, ShieldCheck,
   Calendar, Plus, Trash2, Check, ChevronLeft, ChevronRight,
-  ExternalLink, Clock, X, Search,
+  ExternalLink, Clock, X, Search, List,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 
@@ -910,6 +910,175 @@ function AnexosTab({ licitacaoId }: { licitacaoId: string }) {
   );
 }
 
+// ─── Tab: Itens ───────────────────────────────────────────────────────────────
+
+interface ItemLicitacao {
+  numeroItem: number;
+  descricao: string;
+  quantidade: number;
+  unidadeMedida: string;
+  valorUnitarioEstimado: number | null;
+  valorTotal: number | null;
+  situacaoCompraItem?: { descricao?: string };
+  criterioJulgamentoNome?: string;
+  tipoBeneficioNome?: string;
+  materialOuServico?: string;
+}
+
+function ItensTab({ licitacaoId }: { licitacaoId: string }) {
+  const [itens, setItens] = useState<ItemLicitacao[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [busca, setBusca] = useState('');
+  const [erro, setErro] = useState(false);
+
+  useEffect(() => {
+    async function load() {
+      setLoading(true);
+      setErro(false);
+      try {
+        const res = await fetch(`/api/licitacoes/itens?identificador=${encodeURIComponent(licitacaoId)}`);
+        if (res.ok) {
+          const data = await res.json();
+          setItens(Array.isArray(data) ? data : []);
+        } else {
+          setErro(true);
+        }
+      } catch {
+        setErro(true);
+      }
+      setLoading(false);
+    }
+    load();
+  }, [licitacaoId]);
+
+  const itensFiltrados = itens.filter(i =>
+    i.descricao?.toLowerCase().includes(busca.toLowerCase()) ||
+    String(i.numeroItem).includes(busca)
+  );
+
+  const totalEstimado = itens.reduce((acc, i) => acc + (i.valorTotal || 0), 0);
+
+  if (loading) return (
+    <div style={{ textAlign: 'center', padding: '48px', color: '#7B7B7B', fontSize: '14px' }}>
+      Buscando itens no PNCP...
+    </div>
+  );
+
+  if (erro) return (
+    <div style={{ textAlign: 'center', padding: '48px', color: '#FF4500', fontSize: '14px' }}>
+      Não foi possível carregar os itens desta licitação.
+    </div>
+  );
+
+  return (
+    <div>
+      {/* Summary bar */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
+        {[
+          { label: 'Total de itens', value: itens.length, color: '#1976D2', bg: '#E3F2FD' },
+          { label: 'Valor total estimado', value: totalEstimado > 0 ? formatCurrency(totalEstimado) : '—', color: '#259F46', bg: '#E8F5E9', big: false },
+          { label: 'Materiais / Serviços', value: `${itens.filter(i => i.materialOuServico === 'M').length}M / ${itens.filter(i => i.materialOuServico === 'S').length}S`, color: '#FF6600', bg: '#FFF3E0' },
+        ].map(c => (
+          <div key={c.label} style={{ backgroundColor: c.bg, borderRadius: '8px', padding: '14px 16px' }}>
+            <div style={{ fontSize: c.big === false && String(c.value).length > 10 ? '14px' : '20px', fontWeight: 800, color: c.color }}>{c.value}</div>
+            <div style={{ fontSize: '11px', color: '#7B7B7B', marginTop: '2px' }}>{c.label}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Search */}
+      {itens.length > 0 && (
+        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 12px', backgroundColor: '#fff', marginBottom: '16px' }}>
+          <Search className="h-4 w-4 shrink-0" style={{ color: '#9B9B9B', marginRight: '8px' }} />
+          <input
+            type="text"
+            placeholder="Buscar item por descrição ou número..."
+            value={busca}
+            onChange={e => setBusca(e.target.value)}
+            style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '10px 0', backgroundColor: 'transparent' }}
+          />
+          {busca && (
+            <button onClick={() => setBusca('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+      )}
+
+      {itens.length === 0 ? (
+        <div style={{ textAlign: 'center', padding: '48px 0', color: '#9B9B9B', fontSize: '13px' }}>
+          <ShieldCheck className="h-10 w-10 mx-auto mb-3" style={{ color: '#E0E0E0' }} />
+          Nenhum item encontrado para esta licitação.
+        </div>
+      ) : (
+        <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '10px', overflow: 'hidden' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
+            <thead>
+              <tr style={{ backgroundColor: '#F9F9F9', borderBottom: '1px solid #E8E8E8' }}>
+                {['Nº', 'Descrição', 'Qtd', 'Unidade', 'Vl. Unitário', 'Vl. Total', 'Tipo', 'Situação'].map(h => (
+                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '11px', fontWeight: 700, color: '#262E3A', whiteSpace: 'nowrap' }}>{h}</th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {itensFiltrados.map((item, idx) => {
+                const situacao = item.situacaoCompraItem?.descricao || '—';
+                const isAtivo = situacao.toLowerCase().includes('ativo') || situacao.toLowerCase().includes('publicad') || situacao === '—';
+                return (
+                  <tr key={item.numeroItem} style={{ borderBottom: '1px solid #F5F5F5', backgroundColor: idx % 2 === 0 ? '#fff' : '#FAFAFA' }}>
+                    <td style={{ padding: '11px 14px', color: '#9B9B9B', fontWeight: 700, fontSize: '12px' }}>
+                      {item.numeroItem}
+                    </td>
+                    <td style={{ padding: '11px 14px', color: '#262E3A', maxWidth: '320px' }}>
+                      <span title={item.descricao} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                        {item.descricao || '—'}
+                      </span>
+                      {item.criterioJulgamentoNome && (
+                        <span style={{ fontSize: '10px', color: '#9B9B9B', display: 'block', marginTop: '2px' }}>
+                          {item.criterioJulgamentoNome}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '11px 14px', color: '#262E3A', whiteSpace: 'nowrap' }}>
+                      {item.quantidade != null ? Number(item.quantidade).toLocaleString('pt-BR') : '—'}
+                    </td>
+                    <td style={{ padding: '11px 14px', color: '#7B7B7B', whiteSpace: 'nowrap' }}>
+                      {item.unidadeMedida || '—'}
+                    </td>
+                    <td style={{ padding: '11px 14px', color: '#262E3A', whiteSpace: 'nowrap' }}>
+                      {item.valorUnitarioEstimado != null ? formatCurrency(item.valorUnitarioEstimado) : '—'}
+                    </td>
+                    <td style={{ padding: '11px 14px', fontWeight: 700, color: '#262E3A', whiteSpace: 'nowrap' }}>
+                      {item.valorTotal != null ? formatCurrency(item.valorTotal) : '—'}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      {item.materialOuServico && (
+                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', backgroundColor: item.materialOuServico === 'M' ? '#E3F2FD' : '#F3E5F5', color: item.materialOuServico === 'M' ? '#1976D2' : '#7B1FA2' }}>
+                          {item.materialOuServico === 'M' ? 'Material' : 'Serviço'}
+                        </span>
+                      )}
+                    </td>
+                    <td style={{ padding: '11px 14px' }}>
+                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', backgroundColor: isAtivo ? '#E8F5E9' : '#FFF0EB', color: isAtivo ? '#259F46' : '#FF4500' }}>
+                        {situacao}
+                      </span>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+          {itensFiltrados.length === 0 && busca && (
+            <div style={{ textAlign: 'center', padding: '24px', color: '#9B9B9B', fontSize: '13px' }}>
+              Nenhum item encontrado para "{busca}".
+            </div>
+          )}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ─── Tab: Habilitação ─────────────────────────────────────────────────────────
 
 function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
@@ -1242,10 +1411,11 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type TabKey = 'tarefas' | 'anotacoes' | 'anexos' | 'habilitacao' | 'calendario';
+type TabKey = 'tarefas' | 'anotacoes' | 'anexos' | 'habilitacao' | 'calendario' | 'itens';
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
   { key: 'tarefas', label: 'Suas Tarefas', icon: CheckSquare },
+  { key: 'itens', label: 'Itens', icon: List },
   { key: 'anotacoes', label: 'Anotações', icon: FileText },
   { key: 'anexos', label: 'Anexos', icon: Paperclip },
   { key: 'habilitacao', label: 'Habilitação', icon: ShieldCheck },
@@ -1434,6 +1604,7 @@ export default function GerenciarLicitacaoPage() {
       {/* Tab content */}
       <div>
         {activeTab === 'tarefas' && <TarefasTab licitacaoId={licitacaoId} />}
+        {activeTab === 'itens' && <ItensTab licitacaoId={licitacaoId} />}
         {activeTab === 'anotacoes' && <AnotacoesTab licitacaoId={licitacaoId} />}
         {activeTab === 'anexos' && <AnexosTab licitacaoId={licitacaoId} />}
         {activeTab === 'habilitacao' && <HabilitacaoTab licitacaoId={licitacaoId} />}
