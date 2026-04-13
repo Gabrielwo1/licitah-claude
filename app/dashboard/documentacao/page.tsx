@@ -399,6 +399,24 @@ export default function DocumentacaoPage() {
                       {/* Ações */}
                       <td style={{ padding: '14px 16px' }}>
                         <div className="flex items-center" style={{ gap: '8px' }}>
+                          {doc.licitacoes_habilitacao_documento && (
+                            <button
+                              onClick={() => {
+                                const d = doc.licitacoes_habilitacao_documento;
+                                if (d.startsWith('data:')) {
+                                  const w = window.open('', '_blank');
+                                  if (w) { w.document.write(`<iframe src="${d}" width="100%" height="100%" style="border:none"></iframe>`); }
+                                } else {
+                                  window.open(d, '_blank');
+                                }
+                              }}
+                              title="Abrir documento"
+                              style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', padding: '5px 10px', borderRadius: '6px', fontSize: '12px', fontWeight: 600, backgroundColor: '#F0F9F4', color: '#259F46', border: 'none', cursor: 'pointer' }}
+                            >
+                              <ExternalLink size={12} />
+                              Abrir
+                            </button>
+                          )}
                           <button
                             onClick={() => {
                               setVincularDoc(doc);

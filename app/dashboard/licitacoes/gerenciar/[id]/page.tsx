@@ -970,13 +970,25 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
   async function addHabilitacao() {
     if (!nome.trim()) return;
     setSaving(true);
-    const fileName = file ? file.name : '';
+
+    // Upload file first if provided
+    let documentoUrl = '';
+    if (file) {
+      const fd = new FormData();
+      fd.append('file', file);
+      const upRes = await fetch('/api/upload', { method: 'POST', body: fd });
+      if (upRes.ok) {
+        const upData = await upRes.json();
+        documentoUrl = upData.url;
+      }
+    }
+
     const res = await fetch('/api/habilitacoes', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         nome: nome.trim(),
-        documento: fileName,
+        documento: documentoUrl || file?.name || '',
         dataValidade: dataValidade || null,
         licitacaoGoverno: licitacaoId,
       }),
@@ -1196,7 +1208,20 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
                     </td>
                     <td style={{ padding: '12px 16px' }}>
                       <div className="flex gap-1">
-                        <button title="Visualizar" style={{ backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
+                        <button
+                          title="Visualizar"
+                          onClick={() => {
+                            const doc = h.licitacoes_habilitacao_documento;
+                            if (!doc) return;
+                            if (doc.startsWith('data:')) {
+                              const w = window.open('', '_blank');
+                              if (w) { w.document.write(`<iframe src="${doc}" width="100%" height="100%" style="border:none"></iframe>`); }
+                            } else {
+                              window.open(doc, '_blank');
+                            }
+                          }}
+                          disabled={!h.licitacoes_habilitacao_documento}
+                          style={{ backgroundColor: h.licitacoes_habilitacao_documento ? '#262E3A' : '#CFCFCF', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: h.licitacoes_habilitacao_documento ? 'pointer' : 'default' }}>
                           <ExternalLink className="h-3.5 w-3.5" />
                         </button>
                         <button onClick={() => deleteHabilitacao(h.licitacoes_habilitacao_id)} title="Excluir" style={{ backgroundColor: '#FF4500', color: '#fff', border: 'none', borderRadius: '6px', width: '30px', height: '30px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }}>
