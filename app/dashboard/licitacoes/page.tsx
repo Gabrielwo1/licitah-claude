@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
 import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
-import { getCached, setCache } from '@/lib/licitacoes-cache';
+import { getCacheResult, getCacheTimestamp, setCache } from '@/lib/licitacoes-cache';
 
 const MODALIDADES = [
   { value: '', label: 'Todas as modalidades' },
@@ -129,6 +129,10 @@ export default function LicitacoesPage() {
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState('');
+  const [isStale, setIsStale] = useState(false);
+  const [cacheTs, setCacheTs] = useState<number | null>(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const revalidatingRef = useRef(false);
 
   // Carrega cidades do IBGE quando o estado muda
   useEffect(() => {
@@ -181,67 +185,88 @@ export default function LicitacoesPage() {
     return da - db; // abertura mais antiga primeiro
   });
 
-  async function fetchLicitacoes(page = 1) {
-    setLoading(true);
-    setApiError('');
+  function buildParams(page: number) {
+    const params = new URLSearchParams();
+    params.set('pagina', String(page));
+    params.set('tamanhoPagina', String(PAGE_SIZE));
+    if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
+    if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
+    if (modalidade) params.set('modalidade', modalidade);
+    if (uf) params.set('uf', uf);
+    if (cidade) params.set('municipio', cidade);
+    if (codigoIbge) params.set('codigoIbge', codigoIbge);
+    const termoBusca = [busca.trim(), ...oportunidadesSelecionadas].filter(Boolean).join(' ');
+    if (termoBusca) params.set('busca', termoBusca);
+    if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
+    return params;
+  }
+
+  async function fetchFromAPI(queryString: string, cacheParams: Record<string, string>, page: number, bg = false) {
     try {
-      const params = new URLSearchParams();
-      params.set('pagina', String(page));
-      params.set('tamanhoPagina', String(PAGE_SIZE));
-
-      if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
-      if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
-
-      if (modalidade) params.set('modalidade', modalidade);
-      if (uf) params.set('uf', uf);
-      if (cidade) params.set('municipio', cidade);
-      if (codigoIbge) params.set('codigoIbge', codigoIbge);
-      // Combina busca manual com oportunidades selecionadas
-      const termoBusca = [
-        busca.trim(),
-        ...oportunidadesSelecionadas,
-      ].filter(Boolean).join(' ');
-      if (termoBusca) params.set('busca', termoBusca);
-      if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
-
-      // ── Cache check ──
-      const cacheParams: Record<string, string> = {};
-      params.forEach((v, k) => { cacheParams[k] = v; });
-      const cached = getCached(cacheParams);
-      if (cached) {
-        setAllLicitacoes(cached);
-        setTotal(cached.length);
-        setTotalPaginas(1);
-        setHasMore(false);
-        setPagina(page);
-        setSearched(true);
-        setLoading(false);
+      const res = await fetch(`/api/licitacoes?${queryString}`);
+      const json = await res.json();
+      if (json.error) {
+        if (!bg) setApiError('A API do governo está temporariamente indisponível. Tente novamente em alguns instantes.');
+        if (!bg) setAllLicitacoes([]);
         return;
       }
-
-      const res = await fetch(`/api/licitacoes?${params.toString()}`);
-      const json = await res.json();
-
-      if (json.error) {
-        setApiError('A API do governo está temporariamente indisponível. Tente novamente em alguns instantes.');
+      const data: any[] = json.data || [];
+      if (data.length > 0) setCache(cacheParams, data);
+      setAllLicitacoes(data);
+      setTotal(json.totalRegistros || data.length);
+      setTotalPaginas(json.totalPaginas || 1);
+      setHasMore(json.paginasRestantes || false);
+      setIsStale(false);
+      setCacheTs(Date.now());
+      if (!bg) { setPagina(page); setSearched(true); }
+    } catch {
+      if (!bg) {
+        setApiError('Erro de conexão. Verifique sua internet e tente novamente.');
         setAllLicitacoes([]);
-      } else {
-        const data = json.data || [];
-        setAllLicitacoes(data);
-        setTotal(json.totalRegistros || 0);
-        setTotalPaginas(json.totalPaginas || 1);
-        setHasMore(json.paginasRestantes || false);
-        // Salva no cache da sessão
-        if (data.length > 0) setCache(cacheParams, data);
       }
+    }
+  }
+
+  async function revalidateInBackground(cacheParams: Record<string, string>, queryString: string, page: number) {
+    if (revalidatingRef.current) return;
+    revalidatingRef.current = true;
+    setRevalidating(true);
+    await fetchFromAPI(queryString, cacheParams, page, true);
+    revalidatingRef.current = false;
+    setRevalidating(false);
+  }
+
+  async function fetchLicitacoes(page = 1) {
+    setApiError('');
+    const params = buildParams(page);
+    const cacheParams: Record<string, string> = {};
+    params.forEach((v, k) => { cacheParams[k] = v; });
+
+    // ── Stale-while-revalidate: serve cache instantly ──
+    const cacheResult = getCacheResult(cacheParams);
+    if (cacheResult.hit) {
+      setAllLicitacoes(cacheResult.data);
+      setTotal(cacheResult.data.length);
+      setTotalPaginas(1);
+      setHasMore(false);
       setPagina(page);
       setSearched(true);
-    } catch {
-      setApiError('Erro de conexão. Verifique sua internet e tente novamente.');
-      setAllLicitacoes([]);
-    } finally {
       setLoading(false);
+      setIsStale(cacheResult.stale);
+      setCacheTs(getCacheTimestamp(cacheParams));
+      // If stale, revalidate silently in background
+      if (cacheResult.stale) {
+        revalidateInBackground(cacheParams, params.toString(), page);
+      }
+      return;
     }
+
+    // ── Cache miss → full fetch ──
+    setLoading(true);
+    await fetchFromAPI(params.toString(), cacheParams, page, false);
+    setPagina(page);
+    setSearched(true);
+    setLoading(false);
   }
 
   function handleSearch(e: React.FormEvent) {
@@ -608,6 +633,28 @@ export default function LicitacoesPage() {
         {/* Results */}
         {!loading && filtered.length > 0 && (
           <>
+            {/* Stale cache badge */}
+            {isStale && cacheTs && (
+              <div
+                className="flex items-center gap-2 mb-3 px-3 py-2 rounded-md text-xs"
+                style={{ backgroundColor: '#FFF8E1', border: '1px solid #FFE082', color: '#7B5800' }}
+              >
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
+                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
+                </svg>
+                <span>
+                  Cache atualizado {formatCacheAge(cacheTs)}.
+                  {revalidating
+                    ? ' Atualizando em segundo plano...'
+                    : (
+                      <> <button
+                        onClick={() => { setIsStale(false); fetchLicitacoes(pagina); }}
+                        style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
+                      >Atualizar agora</button></>
+                    )}
+                </span>
+              </div>
+            )}
             {/* Result count + sort buttons */}
             <div
               className="flex items-center justify-between flex-wrap gap-2"
@@ -700,6 +747,15 @@ export default function LicitacoesPage() {
       </main>
     </div>
   );
+}
+
+function formatCacheAge(ts: number): string {
+  const minutes = Math.floor((Date.now() - ts) / 60000);
+  if (minutes < 1) return 'agora mesmo';
+  if (minutes < 60) return `há ${minutes} min`;
+  const hours = Math.floor(minutes / 60);
+  const mins = minutes % 60;
+  return `há ${hours}h${mins > 0 ? ` ${mins}min` : ''}`;
 }
 
 function PaginationBtn({

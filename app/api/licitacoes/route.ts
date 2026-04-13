@@ -48,7 +48,7 @@ async function fetchModalidade(
     const res = await fetch(`${PNCP_API}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
-      next: { revalidate: 60 },
+      next: { revalidate: 14400 },
     });
     clearTimeout(timer);
     if (!res.ok) return [];
