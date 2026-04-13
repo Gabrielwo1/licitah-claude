@@ -4,10 +4,10 @@ import { authOptions } from '@/lib/auth';
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 
-// Sempre busca o máximo do PNCP por request — paginação visual é feita no cliente
+// Máximo que o PNCP aceita por request — paginação visual é feita no cliente
 const PNCP_PAGE_SIZE = 500;
 
-// Modalidades mais usadas — buscadas em paralelo quando "todas" selecionado
+// Modalidades buscadas em paralelo (uma request cada)
 const MODALIDADES_TODAS = ['7', '8', '14', '5', '6', '15', '11'];
 
 function toAPIDate(dateStr: string): string {
@@ -51,7 +51,7 @@ async function fetchModalidade(
     const res = await fetch(`${PNCP_API}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
-      next: { revalidate: 14400 },
+      cache: 'no-store', // sem cache no servidor — cliente usa localStorage
     });
     clearTimeout(timer);
     if (!res.ok) return [];
@@ -83,19 +83,15 @@ export async function GET(req: NextRequest) {
   let data: any[] = [];
 
   if (modalidadeParam && modalidadeParam !== 'all') {
-    // Modalidade específica — busca páginas 1 e 2 para cobrir mais resultados
-    const [p1, p2] = await Promise.all([
-      fetchModalidade(modalidadeParam, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge),
-      fetchModalidade(modalidadeParam, dataInicial, dataFinal, 2, PNCP_PAGE_SIZE, uf, codigoIbge),
-    ]);
-    data = [...p1, ...p2];
+    // Modalidade específica — 1 request com máximo de resultados
+    data = await fetchModalidade(modalidadeParam, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge);
   } else {
-    // Todas as modalidades — paralelo, 2 páginas cada
-    const fetches = MODALIDADES_TODAS.flatMap(m => [
-      fetchModalidade(m, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge),
-      fetchModalidade(m, dataInicial, dataFinal, 2, PNCP_PAGE_SIZE, uf, codigoIbge),
-    ]);
-    const results = await Promise.allSettled(fetches);
+    // Todas as modalidades — 7 requests em paralelo, uma por modalidade
+    const results = await Promise.allSettled(
+      MODALIDADES_TODAS.map(m =>
+        fetchModalidade(m, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge)
+      )
+    );
     results.forEach(r => {
       if (r.status === 'fulfilled') data.push(...r.value);
     });
