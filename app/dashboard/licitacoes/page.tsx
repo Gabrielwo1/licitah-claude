@@ -213,10 +213,8 @@ export default function LicitacoesPage() {
   const safeClientPage = Math.min(clientPage, totalClientPages);
   const filtered = sorted.slice((safeClientPage - 1) * PAGE_SIZE, safeClientPage * PAGE_SIZE);
 
-  function buildParams(page: number) {
+  function buildParams() {
     const params = new URLSearchParams();
-    params.set('pagina', String(page));
-    params.set('tamanhoPagina', String(PAGE_SIZE));
     if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
     if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
     if (modalidade) params.set('modalidade', modalidade);
@@ -268,18 +266,18 @@ export default function LicitacoesPage() {
     }
   }
 
-  async function revalidateInBackground(cacheParams: Record<string, string>, queryString: string, page: number) {
+  async function revalidateInBackground(cacheParams: Record<string, string>, queryString: string) {
     if (revalidatingRef.current) return;
     revalidatingRef.current = true;
     setRevalidating(true);
-    await fetchFromAPI(queryString, cacheParams, page, true);
+    await fetchFromAPI(queryString, cacheParams, 1, true);
     revalidatingRef.current = false;
     setRevalidating(false);
   }
 
   async function fetchLicitacoes(page = 1) {
     setApiError('');
-    const params = buildParams(page);
+    const params = buildParams();
     const cacheParams: Record<string, string> = {};
     params.forEach((v, k) => { cacheParams[k] = v; });
 
@@ -295,9 +293,8 @@ export default function LicitacoesPage() {
       setLoading(false);
       setIsStale(cacheResult.stale);
       setCacheTs(getCacheTimestamp(cacheParams));
-      // If stale, revalidate silently in background
       if (cacheResult.stale) {
-        revalidateInBackground(cacheParams, params.toString(), page);
+        revalidateInBackground(cacheParams, params.toString());
       }
       return;
     }
@@ -690,7 +687,7 @@ export default function LicitacoesPage() {
                     ? ' Atualizando em segundo plano...'
                     : (
                       <> <button
-                        onClick={() => { setIsStale(false); fetchLicitacoes(pagina); }}
+                        onClick={() => { setIsStale(false); setAllLicitacoes([]); fetchLicitacoes(1); }}
                         style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
                       >Atualizar agora</button></>
                     )}

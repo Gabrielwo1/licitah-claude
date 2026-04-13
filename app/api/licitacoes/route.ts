@@ -4,6 +4,9 @@ import { authOptions } from '@/lib/auth';
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 
+// Sempre busca o máximo do PNCP por request — paginação visual é feita no cliente
+const PNCP_PAGE_SIZE = 500;
+
 // Modalidades mais usadas — buscadas em paralelo quando "todas" selecionado
 const MODALIDADES_TODAS = ['7', '8', '14', '5', '6', '15', '11'];
 
@@ -65,8 +68,6 @@ export async function GET(req: NextRequest) {
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
   const { searchParams } = new URL(req.url);
-  const pagina = parseInt(searchParams.get('pagina') || '1');
-  const tamanhoPagina = Math.max(10, Math.min(50, parseInt(searchParams.get('tamanhoPagina') || '20')));
   const uf = searchParams.get('uf') || '';
   const municipio = searchParams.get('municipio') || '';
   const codigoIbge = searchParams.get('codigoIbge') || '';
@@ -79,23 +80,22 @@ export async function GET(req: NextRequest) {
   const dataInicial = toAPIDate(rawInicial);
   const dataFinal = toAPIDate(rawFinal);
 
-  // Quando há filtro de cidade, buscar o máximo possível por request
-  const subPageSize = (codigoIbge || municipio) ? 50 : Math.min(50, tamanhoPagina);
-
   let data: any[] = [];
 
   if (modalidadeParam && modalidadeParam !== 'all') {
-    // Modalidade específica — 1 request
-    data = await fetchModalidade(
-      modalidadeParam, dataInicial, dataFinal, pagina, tamanhoPagina, uf, codigoIbge
-    );
+    // Modalidade específica — busca páginas 1 e 2 para cobrir mais resultados
+    const [p1, p2] = await Promise.all([
+      fetchModalidade(modalidadeParam, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge),
+      fetchModalidade(modalidadeParam, dataInicial, dataFinal, 2, PNCP_PAGE_SIZE, uf, codigoIbge),
+    ]);
+    data = [...p1, ...p2];
   } else {
-    // Todas as modalidades — paralelo
-    const results = await Promise.allSettled(
-      MODALIDADES_TODAS.map(m =>
-        fetchModalidade(m, dataInicial, dataFinal, 1, subPageSize, uf, codigoIbge)
-      )
-    );
+    // Todas as modalidades — paralelo, 2 páginas cada
+    const fetches = MODALIDADES_TODAS.flatMap(m => [
+      fetchModalidade(m, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge),
+      fetchModalidade(m, dataInicial, dataFinal, 2, PNCP_PAGE_SIZE, uf, codigoIbge),
+    ]);
+    const results = await Promise.allSettled(fetches);
     results.forEach(r => {
       if (r.status === 'fulfilled') data.push(...r.value);
     });
