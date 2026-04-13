@@ -99,9 +99,16 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
         <nav className="flex-1 overflow-y-auto py-3 px-3 space-y-1">
           {allItems.map((item) => {
             const Icon = item.icon;
+
+            // Gerenciar licitação belongs to "Minhas Licitações", not "Licitações"
+            const isGerenciar = pathname.startsWith('/dashboard/licitacoes/gerenciar');
+
             const isActive =
-              pathname === item.href ||
-              (item.href !== '/dashboard' && pathname.startsWith(item.href));
+              (item.href === '/dashboard/minhas-licitacoes' && isGerenciar) ||
+              (!isGerenciar && (
+                pathname === item.href ||
+                (item.href !== '/dashboard' && pathname.startsWith(item.href))
+              ));
 
             return (
               <Link
