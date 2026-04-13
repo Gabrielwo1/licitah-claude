@@ -115,13 +115,39 @@ export function getCached(params: Record<string, string>): any[] | null {
   return r.fresh ? r.data : null;
 }
 
-/** Salva dados no cache */
+/** Salva dados no cache (substitui qualquer entrada anterior) */
 export function setCache(params: Record<string, string>, data: any[]): void {
   if (typeof window === 'undefined') return;
   enforceLimit();
   const key = buildKey(params);
   writeEntry(key, { data, ts: Date.now(), params });
   // Persiste os últimos params usados para restauração rápida
+  try { localStorage.setItem(LAST_KEY, JSON.stringify(params)); } catch {}
+}
+
+/**
+ * Merge aditivo: adiciona novos resultados ao cache existente.
+ * - Deduplicação por `numeroControlePNCP`
+ * - Novos dados têm prioridade (sobrescrevem entradas antigas do mesmo ID)
+ * - Não remove entradas; filtragem por data é responsabilidade da UI
+ */
+export function mergeCache(params: Record<string, string>, newData: any[]): void {
+  if (typeof window === 'undefined') return;
+  enforceLimit();
+  const key = buildKey(params);
+  const existing = readEntry(key);
+
+  let merged: any[];
+  if (existing?.data?.length) {
+    const byId = new Map<string, any>();
+    existing.data.forEach((l: any) => byId.set(l.numeroControlePNCP, l));
+    newData.forEach((l: any) => byId.set(l.numeroControlePNCP, l)); // novos sobrescrevem
+    merged = Array.from(byId.values());
+  } else {
+    merged = newData;
+  }
+
+  writeEntry(key, { data: merged, ts: Date.now(), params });
   try { localStorage.setItem(LAST_KEY, JSON.stringify(params)); } catch {}
 }
 

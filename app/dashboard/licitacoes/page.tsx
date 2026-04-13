@@ -5,7 +5,7 @@ import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
 import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
-import { getCacheResult, getCacheTimestamp, setCache } from '@/lib/licitacoes-cache';
+import { getCacheResult, getCacheTimestamp, setCache, mergeCache } from '@/lib/licitacoes-cache';
 
 const MODALIDADES = [
   { value: '', label: 'Todas as modalidades' },
@@ -57,7 +57,8 @@ const ESFERAS = [
   { value: 'municipal', label: 'Municipal' },
 ];
 
-const PAGE_SIZE = 20;
+const PAGE_SIZE = 15;
+const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000; // 90 dias em ms
 
 const fieldLabel: React.CSSProperties = {
   display: 'block',
@@ -133,6 +134,8 @@ export default function LicitacoesPage() {
   const [cacheTs, setCacheTs] = useState<number | null>(null);
   const [revalidating, setRevalidating] = useState(false);
   const revalidatingRef = useRef(false);
+  const [managedIds, setManagedIds] = useState<Set<string>>(new Set());
+  const [clientPage, setClientPage] = useState(1);
 
   // Carrega cidades do IBGE quando o estado muda
   useEffect(() => {
@@ -152,6 +155,17 @@ export default function LicitacoesPage() {
       .finally(() => setLoadingCidades(false));
   }, [uf]);
 
+  // Carrega IDs das licitações gerenciadas para isentar do filtro de 3 meses
+  useEffect(() => {
+    fetch('/api/gerenciadas')
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then((json: any) => {
+        const ids = new Set<string>((json.data || []).map((g: any) => g.lg_identificador as string));
+        setManagedIds(ids);
+      })
+      .catch(() => {});
+  }, []);
+
   // Auto-busca ao abrir o módulo
   useEffect(() => {
     if (didAutoSearch.current) return;
@@ -160,18 +174,26 @@ export default function LicitacoesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Client-side situação filter
-  const licitacoes = situacao
-    ? allLicitacoes.filter((l) => {
+  // ── Pipeline de exibição ──
+  const threeMonthsAgo = Date.now() - THREE_MONTHS_MS;
+
+  // 1. Filtro de 3 meses: remove licitações antigas, exceto gerenciadas
+  const withinWindow = allLicitacoes.filter((l) => {
+    const pub = new Date(l.dataPublicacaoPncp || l.dataAberturaProposta || 0).getTime();
+    if (pub >= threeMonthsAgo) return true;
+    return managedIds.has(l.numeroControlePNCP);
+  });
+
+  // 2. Filtro de situação
+  const afterSituacao = situacao
+    ? withinWindow.filter((l) => {
         const nome = l.situacaoCompraNome?.toLowerCase() || '';
         return nome.includes(situacao.toLowerCase());
       })
-    : allLicitacoes;
+    : withinWindow;
 
-  const afterCidade = licitacoes;
-
-  // Client-side sort
-  const filtered = [...afterCidade].sort((a, b) => {
+  // 3. Ordenação
+  const sorted = [...afterSituacao].sort((a, b) => {
     if (sortBy === 'maior') return (b.valorTotalEstimado ?? -1) - (a.valorTotalEstimado ?? -1);
     if (sortBy === 'menor') {
       if (!a.valorTotalEstimado && !b.valorTotalEstimado) return 0;
@@ -181,9 +203,15 @@ export default function LicitacoesPage() {
     }
     const da = new Date(a.dataAberturaProposta || 0).getTime();
     const db = new Date(b.dataAberturaProposta || 0).getTime();
-    if (sortBy === 'recente') return db - da; // abertura mais recente primeiro
-    return da - db; // abertura mais antiga primeiro
+    if (sortBy === 'recente') return db - da;
+    return da - db;
   });
+
+  // 4. Paginação client-side
+  const totalFiltered = sorted.length;
+  const totalClientPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
+  const safeClientPage = Math.min(clientPage, totalClientPages);
+  const filtered = sorted.slice((safeClientPage - 1) * PAGE_SIZE, safeClientPage * PAGE_SIZE);
 
   function buildParams(page: number) {
     const params = new URLSearchParams();
@@ -211,8 +239,21 @@ export default function LicitacoesPage() {
         return;
       }
       const data: any[] = json.data || [];
-      if (data.length > 0) setCache(cacheParams, data);
-      setAllLicitacoes(data);
+      if (data.length > 0) {
+        if (bg) {
+          // Merge aditivo: adiciona novas, mantém existentes
+          mergeCache(cacheParams, data);
+          // Lê o cache atualizado para refletir no estado
+          const updated = getCacheResult(cacheParams);
+          if (updated.hit) setAllLicitacoes(updated.data);
+          else setAllLicitacoes(data);
+        } else {
+          setCache(cacheParams, data);
+          setAllLicitacoes(data);
+        }
+      } else if (!bg) {
+        setAllLicitacoes([]);
+      }
       setTotal(json.totalRegistros || data.length);
       setTotalPaginas(json.totalPaginas || 1);
       setHasMore(json.paginasRestantes || false);
@@ -271,6 +312,7 @@ export default function LicitacoesPage() {
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
+    setClientPage(1);
     fetchLicitacoes(1);
   }
 
@@ -661,10 +703,8 @@ export default function LicitacoesPage() {
               style={{ marginBottom: '12px' }}
             >
               <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
-                {total > 0
-                  ? `${total.toLocaleString('pt-BR')} resultado(s)`
-                  : `${filtered.length} resultado(s)`}
-                {totalPaginas > 1 && ` — Página ${pagina} de ${totalPaginas}`}
+                {totalFiltered.toLocaleString('pt-BR')} resultado(s)
+                {totalClientPages > 1 && ` — Página ${safeClientPage} de ${totalClientPages}`}
               </span>
 
               {/* Sort pills */}
@@ -677,7 +717,7 @@ export default function LicitacoesPage() {
                 ] as const).map(({ key, label }) => (
                   <button
                     key={key}
-                    onClick={() => setSortBy(key)}
+                    onClick={() => { setSortBy(key); setClientPage(1); }}
                     style={{
                       fontSize: '12px',
                       fontWeight: 600,
@@ -708,40 +748,43 @@ export default function LicitacoesPage() {
               <LicitacaoCard key={l.numeroControlePNCP} licitacao={l} />
             ))}
 
-            {/* Pagination */}
-            <div className="flex items-center justify-center gap-1 pt-4 pb-2">
-              <PaginationBtn
-                onClick={() => fetchLicitacoes(pagina - 1)}
-                disabled={pagina <= 1}
-                label="←"
-              />
+            {/* Client-side pagination */}
+            {totalClientPages > 1 && (
+              <div className="flex items-center justify-center gap-1 pt-4 pb-2">
+                <PaginationBtn
+                  onClick={() => setClientPage(p => Math.max(1, p - 1))}
+                  disabled={safeClientPage <= 1}
+                  label="←"
+                />
 
-              {pagina > 2 && (
-                <PaginationBtn onClick={() => fetchLicitacoes(1)} label="1" />
-              )}
-              {pagina > 3 && (
-                <span style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
-              )}
-              {pagina > 1 && (
-                <PaginationBtn onClick={() => fetchLicitacoes(pagina - 1)} label={String(pagina - 1)} />
-              )}
-              <PaginationBtn label={String(pagina)} active />
-              {(hasMore || pagina < totalPaginas) && (
-                <PaginationBtn onClick={() => fetchLicitacoes(pagina + 1)} label={String(pagina + 1)} />
-              )}
-              {totalPaginas > pagina + 2 && (
-                <span style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
-              )}
-              {totalPaginas > pagina + 1 && (
-                <PaginationBtn onClick={() => fetchLicitacoes(totalPaginas)} label={String(totalPaginas)} />
-              )}
+                {/* Page numbers with ellipsis */}
+                {(() => {
+                  const pages: (number | '...')[] = [];
+                  const cur = safeClientPage;
+                  const tot = totalClientPages;
+                  if (tot <= 7) {
+                    for (let i = 1; i <= tot; i++) pages.push(i);
+                  } else {
+                    pages.push(1);
+                    if (cur > 3) pages.push('...');
+                    for (let i = Math.max(2, cur - 1); i <= Math.min(tot - 1, cur + 1); i++) pages.push(i);
+                    if (cur < tot - 2) pages.push('...');
+                    pages.push(tot);
+                  }
+                  return pages.map((p, i) =>
+                    p === '...'
+                      ? <span key={`e${i}`} style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
+                      : <PaginationBtn key={p} label={String(p)} active={p === cur} onClick={() => setClientPage(p as number)} />
+                  );
+                })()}
 
-              <PaginationBtn
-                onClick={() => fetchLicitacoes(pagina + 1)}
-                disabled={!hasMore && pagina >= totalPaginas}
-                label="→"
-              />
-            </div>
+                <PaginationBtn
+                  onClick={() => setClientPage(p => Math.min(totalClientPages, p + 1))}
+                  disabled={safeClientPage >= totalClientPages}
+                  label="→"
+                />
+              </div>
+            )}
           </>
         )}
       </main>
