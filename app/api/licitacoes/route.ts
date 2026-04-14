@@ -4,11 +4,21 @@ import { authOptions } from '@/lib/auth';
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 
-// Máximo que o PNCP aceita por request — paginação visual é feita no cliente
-const PNCP_PAGE_SIZE = 500;
+// Máximo que o PNCP aceita por request (>50 retorna 400)
+const PNCP_PAGE_SIZE = 50;
 
-// Modalidades buscadas em paralelo (uma request cada)
-const MODALIDADES_TODAS = ['7', '8', '14', '5', '6', '15', '11'];
+// Modalidades e quantas páginas buscar de cada (50 itens/página, paralelo)
+// Pregão Eletr(7), Pregão Pres(8), Dispensa(14), Concorr Eletr(5) → 3 páginas = 150 cada
+// Demais → 1 página = 50 cada  → total potencial ~750 resultados
+const MODALIDADES_MULTIPAGINA: { mod: string; paginas: number }[] = [
+  { mod: '7',  paginas: 3 }, // Pregão Eletrônico
+  { mod: '8',  paginas: 2 }, // Pregão Presencial
+  { mod: '14', paginas: 3 }, // Dispensa de Licitação
+  { mod: '5',  paginas: 2 }, // Concorrência Eletrônica
+  { mod: '6',  paginas: 1 }, // Concorrência Presencial
+  { mod: '15', paginas: 1 }, // Inexigibilidade
+  { mod: '11', paginas: 1 }, // Credenciamento
+];
 
 function toAPIDate(dateStr: string): string {
   return dateStr.replace(/-/g, '');
@@ -32,7 +42,7 @@ async function fetchModalidade(
   tamanhoPagina: number,
   uf: string,
   codigoIbge: string,
-  timeoutMs = 9000
+  timeoutMs = 12000
 ): Promise<any[]> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
@@ -83,15 +93,19 @@ export async function GET(req: NextRequest) {
   let data: any[] = [];
 
   if (modalidadeParam && modalidadeParam !== 'all') {
-    // Modalidade específica — 1 request com máximo de resultados
-    data = await fetchModalidade(modalidadeParam, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge);
+    // Modalidade específica — busca 3 páginas em paralelo
+    const pages = await Promise.allSettled([1, 2, 3].map(p =>
+      fetchModalidade(modalidadeParam, dataInicial, dataFinal, p, PNCP_PAGE_SIZE, uf, codigoIbge)
+    ));
+    pages.forEach(r => { if (r.status === 'fulfilled') data.push(...r.value); });
   } else {
-    // Todas as modalidades — 7 requests em paralelo, uma por modalidade
-    const results = await Promise.allSettled(
-      MODALIDADES_TODAS.map(m =>
-        fetchModalidade(m, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge)
+    // Todas as modalidades — múltiplas páginas por modalidade, tudo em paralelo
+    const fetches = MODALIDADES_MULTIPAGINA.flatMap(({ mod, paginas }) =>
+      Array.from({ length: paginas }, (_, i) =>
+        fetchModalidade(mod, dataInicial, dataFinal, i + 1, PNCP_PAGE_SIZE, uf, codigoIbge)
       )
     );
+    const results = await Promise.allSettled(fetches);
     results.forEach(r => {
       if (r.status === 'fulfilled') data.push(...r.value);
     });
