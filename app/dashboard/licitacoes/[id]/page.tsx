@@ -270,46 +270,7 @@ export default function LicitacaoDetailPage() {
       )}
 
       {/* Items */}
-      {items.length > 0 && (
-        <div
-          className="bg-white rounded-[10px]"
-          style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)' }}
-        >
-          <div
-            className="px-6 py-4 font-bold text-base"
-            style={{ borderBottom: '1px solid #F0F0F0', color: '#262E3A' }}
-          >
-            Itens da Licitação ({items.length})
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead style={{ backgroundColor: '#F6F5FA' }}>
-                <tr>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: '#7B7B7B' }}>#</th>
-                  <th className="px-4 py-3 text-left text-xs font-bold uppercase" style={{ color: '#7B7B7B' }}>Descrição</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase" style={{ color: '#7B7B7B' }}>Qtd</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase" style={{ color: '#7B7B7B' }}>Valor Unit.</th>
-                  <th className="px-4 py-3 text-right text-xs font-bold uppercase" style={{ color: '#7B7B7B' }}>Total</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((item, i) => (
-                  <tr
-                    key={i}
-                    style={{ borderBottom: i < items.length - 1 ? '1px solid #F0F0F0' : 'none' }}
-                  >
-                    <td className="px-4 py-3" style={{ color: '#7B7B7B' }}>{item.numeroItem || i + 1}</td>
-                    <td className="px-4 py-3 font-medium" style={{ color: '#262E3A' }}>{item.descricao}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#7B7B7B' }}>{item.quantidade} {item.unidadeMedida}</td>
-                    <td className="px-4 py-3 text-right" style={{ color: '#7B7B7B' }}>{formatCurrency(item.valorUnitarioEstimado)}</td>
-                    <td className="px-4 py-3 text-right font-bold" style={{ color: '#0a1175' }}>{formatCurrency(item.valorTotal)}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      )}
+      {items.length > 0 && <ItensTable items={items} />}
 
       {/* Tarefas */}
       <div
@@ -459,5 +420,139 @@ export default function LicitacaoDetailPage() {
         </div>
       </div>
     </div>
+  );
+}
+
+// ─── Tabela de Itens estilo PNCP ─────────────────────────────────────────────
+
+const ITENS_PAGE_SIZES_DETAIL = [5, 10, 20, 50];
+
+function ItensTable({ items }: { items: LicitacaoItem[] }) {
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
+  const [detalhe, setDetalhe] = useState<LicitacaoItem | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(items.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const end = Math.min(start + pageSize, items.length);
+  const slice = items.slice(start, end);
+
+  const thSt: React.CSSProperties = {
+    padding: '10px 14px', fontSize: '13px', fontWeight: 700,
+    color: '#1a237e', textAlign: 'left', whiteSpace: 'nowrap',
+  };
+  const tdSt: React.CSSProperties = {
+    padding: '12px 14px', fontSize: '13px', color: '#262E3A',
+    borderBottom: '1px solid #EBEBEB', verticalAlign: 'top',
+  };
+  const selSt: React.CSSProperties = {
+    border: '1px solid #D0D0D0', borderRadius: '4px', padding: '3px 24px 3px 8px',
+    fontSize: '13px', cursor: 'pointer', appearance: 'none',
+    backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237B7B7B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`,
+    backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center',
+  };
+  const navBtn = (disabled: boolean): React.CSSProperties => ({
+    border: '1px solid #D0D0D0', borderRadius: '4px', padding: '4px 8px',
+    cursor: disabled ? 'not-allowed' : 'pointer',
+    backgroundColor: '#fff', color: disabled ? '#CFCFCF' : '#1a237e',
+    fontWeight: 700, fontSize: '14px', lineHeight: '1',
+  });
+
+  return (
+    <>
+      {detalhe && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setDetalhe(null)}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', maxWidth: '560px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <span style={{ fontWeight: 800, fontSize: '16px', color: '#1a237e' }}>Item #{detalhe.numeroItem}</span>
+              <button onClick={() => setDetalhe(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            {([
+              ['Descrição', detalhe.descricao],
+              ['Quantidade', detalhe.quantidade != null ? `${Number(detalhe.quantidade).toLocaleString('pt-BR')} ${detalhe.unidadeMedida || ''}` : '—'],
+              ['Valor unitário estimado', detalhe.valorUnitarioEstimado != null ? formatCurrency(detalhe.valorUnitarioEstimado) : '—'],
+              ['Valor total estimado', detalhe.valorTotal != null ? formatCurrency(detalhe.valorTotal) : '—'],
+            ] as [string, string | null | undefined][]).map(([label, value]) => (
+              <div key={label} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F0F0F0' }}>
+                <span style={{ fontSize: '13px', color: '#7B7B7B', minWidth: '200px', flexShrink: 0 }}>{label}</span>
+                <span style={{ fontSize: '13px', color: '#262E3A', fontWeight: 500 }}>{value || '—'}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="bg-white rounded-[10px]" style={{ boxShadow: '0 2px 8px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead style={{ backgroundColor: '#F5F5F5', borderBottom: '2px solid #E0E0E0' }}>
+              <tr>
+                {[
+                  { label: 'Número', w: '90px' },
+                  { label: 'Descrição', w: 'auto' },
+                  { label: 'Quantidade', w: '110px' },
+                  { label: 'Valor unitário estimado', w: '170px' },
+                  { label: 'Valor total estimado', w: '160px' },
+                  { label: 'Detalhar', w: '80px' },
+                ].map(({ label, w }) => (
+                  <th key={label} style={{ ...thSt, width: w }}>
+                    {label} <span style={{ fontSize: '10px', color: '#9e9e9e' }}>↕</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {slice.map((item, idx) => (
+                <tr key={idx} style={{ backgroundColor: '#fff' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F9FF'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'}>
+                  <td style={tdSt}>{item.numeroItem || idx + 1}</td>
+                  <td style={{ ...tdSt, maxWidth: '380px' }}>
+                    <span title={item.descricao || ''} style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                      {item.descricao || '—'}
+                    </span>
+                  </td>
+                  <td style={tdSt}>{item.quantidade != null ? `${Number(item.quantidade).toLocaleString('pt-BR')} ${item.unidadeMedida || ''}` : '—'}</td>
+                  <td style={tdSt}>{item.valorUnitarioEstimado != null ? formatCurrency(item.valorUnitarioEstimado) : '—'}</td>
+                  <td style={{ ...tdSt, fontWeight: 600 }}>{item.valorTotal != null ? formatCurrency(item.valorTotal) : '—'}</td>
+                  <td style={{ ...tdSt, textAlign: 'center' }}>
+                    <button onClick={() => setDetalhe(item)} title="Ver detalhes"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a237e', padding: '4px' }}>
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer paginação */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '1px solid #E0E0E0', backgroundColor: '#FAFAFA', flexWrap: 'wrap', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#262E3A' }}>
+            <span>Exibir:</span>
+            <select value={pageSize} onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }} style={selSt}>
+              {ITENS_PAGE_SIZES_DETAIL.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <span style={{ color: '#7B7B7B' }}>
+              {items.length === 0 ? '0 itens' : `${start + 1}-${end} de ${items.length} itens`}
+            </span>
+          </div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#262E3A' }}>
+            <span>Página:</span>
+            <select value={safePage} onChange={e => setPage(Number(e.target.value))} style={selSt}>
+              {Array.from({ length: totalPages }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1}</option>)}
+            </select>
+            <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={safePage <= 1} style={navBtn(safePage <= 1)}>‹</button>
+            <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={safePage >= totalPages} style={navBtn(safePage >= totalPages)}>›</button>
+          </div>
+        </div>
+      </div>
+    </>
   );
 }

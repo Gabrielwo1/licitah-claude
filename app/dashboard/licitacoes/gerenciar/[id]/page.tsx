@@ -925,10 +925,171 @@ interface ItemLicitacao {
   materialOuServico?: string;
 }
 
+const ITENS_PAGE_SIZES = [5, 10, 20, 50];
+
+function ItensTabela({ itens }: { itens: ItemLicitacao[] }) {
+  const [pageSize, setPageSize] = useState(5);
+  const [page, setPage] = useState(1);
+  const [detalhe, setDetalhe] = useState<ItemLicitacao | null>(null);
+
+  const totalPages = Math.max(1, Math.ceil(itens.length / pageSize));
+  const safePage = Math.min(page, totalPages);
+  const start = (safePage - 1) * pageSize;
+  const end = Math.min(start + pageSize, itens.length);
+  const slice = itens.slice(start, end);
+
+  const thStyle: React.CSSProperties = {
+    padding: '10px 14px', fontSize: '13px', fontWeight: 700,
+    color: '#1a237e', textAlign: 'left', whiteSpace: 'nowrap',
+    userSelect: 'none', cursor: 'default',
+  };
+  const tdStyle: React.CSSProperties = {
+    padding: '12px 14px', fontSize: '13px', color: '#262E3A',
+    borderBottom: '1px solid #EBEBEB', verticalAlign: 'top',
+  };
+
+  return (
+    <>
+      {/* Detalhe modal */}
+      {detalhe && (
+        <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.45)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+          onClick={() => setDetalhe(null)}>
+          <div style={{ background: '#fff', borderRadius: '12px', padding: '28px', maxWidth: '560px', width: '90%', boxShadow: '0 8px 32px rgba(0,0,0,0.18)' }}
+            onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+              <span style={{ fontWeight: 800, fontSize: '16px', color: '#1a237e' }}>Item #{detalhe.numeroItem}</span>
+              <button onClick={() => setDetalhe(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B', fontSize: '20px', lineHeight: 1 }}>×</button>
+            </div>
+            {[
+              ['Descrição', detalhe.descricao],
+              ['Quantidade', detalhe.quantidade != null ? `${Number(detalhe.quantidade).toLocaleString('pt-BR')} ${detalhe.unidadeMedida || ''}` : '—'],
+              ['Valor unitário estimado', detalhe.valorUnitarioEstimado != null ? formatCurrency(detalhe.valorUnitarioEstimado) : '—'],
+              ['Valor total estimado', detalhe.valorTotal != null ? formatCurrency(detalhe.valorTotal) : '—'],
+              ['Tipo', detalhe.materialOuServico === 'M' ? 'Material' : detalhe.materialOuServico === 'S' ? 'Serviço' : '—'],
+              ['Critério de julgamento', detalhe.criterioJulgamentoNome || '—'],
+              ['Benefício', detalhe.tipoBeneficioNome || '—'],
+              ['Situação', detalhe.situacaoCompraItem?.descricao || '—'],
+            ].map(([label, value]) => (
+              <div key={label} style={{ display: 'flex', gap: '12px', padding: '8px 0', borderBottom: '1px solid #F0F0F0' }}>
+                <span style={{ fontSize: '13px', color: '#7B7B7B', minWidth: '200px', flexShrink: 0 }}>{label}</span>
+                <span style={{ fontSize: '13px', color: '#262E3A', fontWeight: 500 }}>{value}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div style={{ backgroundColor: '#fff', border: '1px solid #E0E0E0', borderRadius: '8px', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+            <thead style={{ backgroundColor: '#F5F5F5', borderBottom: '2px solid #E0E0E0' }}>
+              <tr>
+                {[
+                  { label: 'Número', w: '90px' },
+                  { label: 'Descrição', w: 'auto' },
+                  { label: 'Quantidade', w: '110px' },
+                  { label: 'Valor unitário estimado', w: '170px' },
+                  { label: 'Valor total estimado', w: '160px' },
+                  { label: 'Detalhar', w: '80px' },
+                ].map(({ label, w }) => (
+                  <th key={label} style={{ ...thStyle, width: w }}>
+                    {label} <span style={{ fontSize: '10px', color: '#9e9e9e' }}>↕</span>
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {slice.length === 0 ? (
+                <tr>
+                  <td colSpan={6} style={{ padding: '40px', textAlign: 'center', color: '#9B9B9B', fontSize: '13px' }}>
+                    Nenhum item encontrado.
+                  </td>
+                </tr>
+              ) : slice.map((item) => (
+                <tr key={item.numeroItem} style={{ backgroundColor: '#fff' }}
+                  onMouseEnter={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#F9F9FF'}
+                  onMouseLeave={e => (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'}>
+                  <td style={tdStyle}>{item.numeroItem}</td>
+                  <td style={{ ...tdStyle, maxWidth: '380px' }}>
+                    <span title={item.descricao} style={{ display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden', lineHeight: '1.4' }}>
+                      {item.descricao || '—'}
+                    </span>
+                  </td>
+                  <td style={tdStyle}>
+                    {item.quantidade != null ? `${Number(item.quantidade).toLocaleString('pt-BR')} ${item.unidadeMedida || ''}` : '—'}
+                  </td>
+                  <td style={tdStyle}>
+                    {item.valorUnitarioEstimado != null ? formatCurrency(item.valorUnitarioEstimado) : '—'}
+                  </td>
+                  <td style={{ ...tdStyle, fontWeight: 600 }}>
+                    {item.valorTotal != null ? formatCurrency(item.valorTotal) : '—'}
+                  </td>
+                  <td style={{ ...tdStyle, textAlign: 'center' }}>
+                    <button
+                      onClick={() => setDetalhe(item)}
+                      title="Ver detalhes"
+                      style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a237e', padding: '4px' }}
+                    >
+                      <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                        <circle cx="12" cy="12" r="3"/><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/>
+                      </svg>
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer: Exibir / X-Y de N / Página */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '10px 14px', borderTop: '1px solid #E0E0E0', backgroundColor: '#FAFAFA', flexWrap: 'wrap', gap: '8px' }}>
+          {/* Exibir */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#262E3A' }}>
+            <span>Exibir:</span>
+            <select
+              value={pageSize}
+              onChange={e => { setPageSize(Number(e.target.value)); setPage(1); }}
+              style={{ border: '1px solid #D0D0D0', borderRadius: '4px', padding: '3px 24px 3px 8px', fontSize: '13px', cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237B7B7B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+            >
+              {ITENS_PAGE_SIZES.map(s => <option key={s} value={s}>{s}</option>)}
+            </select>
+            <span style={{ color: '#7B7B7B' }}>
+              {itens.length === 0 ? '0 itens' : `${start + 1}-${end} de ${itens.length} itens`}
+            </span>
+          </div>
+
+          {/* Página */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', fontSize: '13px', color: '#262E3A' }}>
+            <span>Página:</span>
+            <select
+              value={safePage}
+              onChange={e => setPage(Number(e.target.value))}
+              style={{ border: '1px solid #D0D0D0', borderRadius: '4px', padding: '3px 24px 3px 8px', fontSize: '13px', cursor: 'pointer', appearance: 'none', backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%237B7B7B' stroke-width='2'%3E%3Cpath d='M6 9l6 6 6-6'/%3E%3C/svg%3E")`, backgroundRepeat: 'no-repeat', backgroundPosition: 'right 6px center' }}
+            >
+              {Array.from({ length: totalPages }, (_, i) => (
+                <option key={i + 1} value={i + 1}>{i + 1}</option>
+              ))}
+            </select>
+            <button
+              onClick={() => setPage(p => Math.max(1, p - 1))}
+              disabled={safePage <= 1}
+              style={{ border: '1px solid #D0D0D0', borderRadius: '4px', padding: '4px 8px', cursor: safePage <= 1 ? 'not-allowed' : 'pointer', backgroundColor: '#fff', color: safePage <= 1 ? '#CFCFCF' : '#1a237e', fontWeight: 700, fontSize: '14px', lineHeight: 1 }}
+            >‹</button>
+            <button
+              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+              disabled={safePage >= totalPages}
+              style={{ border: '1px solid #D0D0D0', borderRadius: '4px', padding: '4px 8px', cursor: safePage >= totalPages ? 'not-allowed' : 'pointer', backgroundColor: '#fff', color: safePage >= totalPages ? '#CFCFCF' : '#1a237e', fontWeight: 700, fontSize: '14px', lineHeight: 1 }}
+            >›</button>
+          </div>
+        </div>
+      </div>
+    </>
+  );
+}
+
 function ItensTab({ licitacaoId }: { licitacaoId: string }) {
   const [itens, setItens] = useState<ItemLicitacao[]>([]);
   const [loading, setLoading] = useState(true);
-  const [busca, setBusca] = useState('');
   const [erro, setErro] = useState(false);
 
   useEffect(() => {
@@ -951,13 +1112,6 @@ function ItensTab({ licitacaoId }: { licitacaoId: string }) {
     load();
   }, [licitacaoId]);
 
-  const itensFiltrados = itens.filter(i =>
-    i.descricao?.toLowerCase().includes(busca.toLowerCase()) ||
-    String(i.numeroItem).includes(busca)
-  );
-
-  const totalEstimado = itens.reduce((acc, i) => acc + (i.valorTotal || 0), 0);
-
   if (loading) return (
     <div style={{ textAlign: 'center', padding: '48px', color: '#7B7B7B', fontSize: '14px' }}>
       Buscando itens no PNCP...
@@ -970,113 +1124,13 @@ function ItensTab({ licitacaoId }: { licitacaoId: string }) {
     </div>
   );
 
-  return (
-    <div>
-      {/* Summary bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '12px', marginBottom: '20px' }}>
-        {[
-          { label: 'Total de itens', value: itens.length, color: '#1976D2', bg: '#E3F2FD' },
-          { label: 'Valor total estimado', value: totalEstimado > 0 ? formatCurrency(totalEstimado) : '—', color: '#259F46', bg: '#E8F5E9', big: false },
-          { label: 'Materiais / Serviços', value: `${itens.filter(i => i.materialOuServico === 'M').length}M / ${itens.filter(i => i.materialOuServico === 'S').length}S`, color: '#FF6600', bg: '#FFF3E0' },
-        ].map(c => (
-          <div key={c.label} style={{ backgroundColor: c.bg, borderRadius: '8px', padding: '14px 16px' }}>
-            <div style={{ fontSize: c.big === false && String(c.value).length > 10 ? '14px' : '20px', fontWeight: 800, color: c.color }}>{c.value}</div>
-            <div style={{ fontSize: '11px', color: '#7B7B7B', marginTop: '2px' }}>{c.label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Search */}
-      {itens.length > 0 && (
-        <div style={{ display: 'flex', alignItems: 'center', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 12px', backgroundColor: '#fff', marginBottom: '16px' }}>
-          <Search className="h-4 w-4 shrink-0" style={{ color: '#9B9B9B', marginRight: '8px' }} />
-          <input
-            type="text"
-            placeholder="Buscar item por descrição ou número..."
-            value={busca}
-            onChange={e => setBusca(e.target.value)}
-            style={{ border: 'none', outline: 'none', fontSize: '13px', flex: 1, padding: '10px 0', backgroundColor: 'transparent' }}
-          />
-          {busca && (
-            <button onClick={() => setBusca('')} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#CFCFCF', padding: 0 }}>
-              <X className="h-4 w-4" />
-            </button>
-          )}
-        </div>
-      )}
-
-      {itens.length === 0 ? (
-        <div style={{ textAlign: 'center', padding: '48px 0', color: '#9B9B9B', fontSize: '13px' }}>
-          <ShieldCheck className="h-10 w-10 mx-auto mb-3" style={{ color: '#E0E0E0' }} />
-          Nenhum item encontrado para esta licitação.
-        </div>
-      ) : (
-        <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '10px', overflow: 'hidden' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-            <thead>
-              <tr style={{ backgroundColor: '#F9F9F9', borderBottom: '1px solid #E8E8E8' }}>
-                {['Nº', 'Descrição', 'Qtd', 'Unidade', 'Vl. Unitário', 'Vl. Total', 'Tipo', 'Situação'].map(h => (
-                  <th key={h} style={{ textAlign: 'left', padding: '11px 14px', fontSize: '11px', fontWeight: 700, color: '#262E3A', whiteSpace: 'nowrap' }}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {itensFiltrados.map((item, idx) => {
-                const situacao = item.situacaoCompraItem?.descricao || '—';
-                const isAtivo = situacao.toLowerCase().includes('ativo') || situacao.toLowerCase().includes('publicad') || situacao === '—';
-                return (
-                  <tr key={item.numeroItem} style={{ borderBottom: '1px solid #F5F5F5', backgroundColor: idx % 2 === 0 ? '#fff' : '#FAFAFA' }}>
-                    <td style={{ padding: '11px 14px', color: '#9B9B9B', fontWeight: 700, fontSize: '12px' }}>
-                      {item.numeroItem}
-                    </td>
-                    <td style={{ padding: '11px 14px', color: '#262E3A', maxWidth: '320px' }}>
-                      <span title={item.descricao} style={{ display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {item.descricao || '—'}
-                      </span>
-                      {item.criterioJulgamentoNome && (
-                        <span style={{ fontSize: '10px', color: '#9B9B9B', display: 'block', marginTop: '2px' }}>
-                          {item.criterioJulgamentoNome}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '11px 14px', color: '#262E3A', whiteSpace: 'nowrap' }}>
-                      {item.quantidade != null ? Number(item.quantidade).toLocaleString('pt-BR') : '—'}
-                    </td>
-                    <td style={{ padding: '11px 14px', color: '#7B7B7B', whiteSpace: 'nowrap' }}>
-                      {item.unidadeMedida || '—'}
-                    </td>
-                    <td style={{ padding: '11px 14px', color: '#262E3A', whiteSpace: 'nowrap' }}>
-                      {item.valorUnitarioEstimado != null ? formatCurrency(item.valorUnitarioEstimado) : '—'}
-                    </td>
-                    <td style={{ padding: '11px 14px', fontWeight: 700, color: '#262E3A', whiteSpace: 'nowrap' }}>
-                      {item.valorTotal != null ? formatCurrency(item.valorTotal) : '—'}
-                    </td>
-                    <td style={{ padding: '11px 14px' }}>
-                      {item.materialOuServico && (
-                        <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', backgroundColor: item.materialOuServico === 'M' ? '#E3F2FD' : '#F3E5F5', color: item.materialOuServico === 'M' ? '#1976D2' : '#7B1FA2' }}>
-                          {item.materialOuServico === 'M' ? 'Material' : 'Serviço'}
-                        </span>
-                      )}
-                    </td>
-                    <td style={{ padding: '11px 14px' }}>
-                      <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 7px', borderRadius: '4px', backgroundColor: isAtivo ? '#E8F5E9' : '#FFF0EB', color: isAtivo ? '#259F46' : '#FF4500' }}>
-                        {situacao}
-                      </span>
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-          {itensFiltrados.length === 0 && busca && (
-            <div style={{ textAlign: 'center', padding: '24px', color: '#9B9B9B', fontSize: '13px' }}>
-              Nenhum item encontrado para "{busca}".
-            </div>
-          )}
-        </div>
-      )}
+  if (itens.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '48px 0', color: '#9B9B9B', fontSize: '13px' }}>
+      Nenhum item encontrado para esta licitação.
     </div>
   );
+
+  return <ItensTabela itens={itens} />;
 }
 
 // ─── Tab: Habilitação ─────────────────────────────────────────────────────────
