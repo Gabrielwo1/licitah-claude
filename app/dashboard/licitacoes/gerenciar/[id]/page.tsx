@@ -1087,20 +1087,51 @@ function ItensTabela({ itens }: { itens: ItemLicitacao[] }) {
   );
 }
 
+// ── Itens localStorage cache (24h TTL) ───────────────────────────────────────
+const ITENS_CACHE_TTL = 24 * 60 * 60 * 1000;
+function itensKey(id: string) { return `pncp_itens:${id}`; }
+function getItensCache(id: string): ItemLicitacao[] | null {
+  if (typeof window === 'undefined') return null;
+  try {
+    const raw = localStorage.getItem(itensKey(id));
+    if (!raw) return null;
+    const { data, ts } = JSON.parse(raw);
+    if (Date.now() - ts > ITENS_CACHE_TTL) { localStorage.removeItem(itensKey(id)); return null; }
+    return data;
+  } catch { return null; }
+}
+function setItensCache(id: string, data: ItemLicitacao[]) {
+  if (typeof window === 'undefined') return;
+  try { localStorage.setItem(itensKey(id), JSON.stringify({ data, ts: Date.now() })); } catch {}
+}
+
 function ItensTab({ licitacaoId }: { licitacaoId: string }) {
   const [itens, setItens] = useState<ItemLicitacao[]>([]);
   const [loading, setLoading] = useState(true);
   const [erro, setErro] = useState(false);
+  const [fromCache, setFromCache] = useState(false);
 
   useEffect(() => {
     async function load() {
+      // 1. Serve do cache imediatamente se disponível
+      const cached = getItensCache(licitacaoId);
+      if (cached && cached.length > 0) {
+        setItens(cached);
+        setLoading(false);
+        setFromCache(true);
+        return; // não busca da API — já temos
+      }
+
+      // 2. Cache miss → busca na API
       setLoading(true);
       setErro(false);
       try {
         const res = await fetch(`/api/licitacoes/itens?identificador=${encodeURIComponent(licitacaoId)}`);
         if (res.ok) {
           const data = await res.json();
-          setItens(Array.isArray(data) ? data : []);
+          const arr = Array.isArray(data) ? data : [];
+          setItens(arr);
+          if (arr.length > 0) setItensCache(licitacaoId, arr); // salva para próximas visitas
         } else {
           setErro(true);
         }
@@ -1130,7 +1161,27 @@ function ItensTab({ licitacaoId }: { licitacaoId: string }) {
     </div>
   );
 
-  return <ItensTabela itens={itens} />;
+  return (
+    <div>
+      {fromCache && (
+        <div style={{ fontSize: '12px', color: '#7B7B7B', marginBottom: '10px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+          Dados carregados do cache local · <button onClick={async () => {
+            localStorage.removeItem(itensKey(licitacaoId));
+            setFromCache(false);
+            setItens([]);
+            setLoading(true);
+            try {
+              const res = await fetch(`/api/licitacoes/itens?identificador=${encodeURIComponent(licitacaoId)}`);
+              if (res.ok) { const d = await res.json(); const arr = Array.isArray(d) ? d : []; setItens(arr); if (arr.length > 0) setItensCache(licitacaoId, arr); }
+            } catch {}
+            setLoading(false);
+          }} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#1a237e', textDecoration: 'underline', fontSize: '12px', padding: 0 }}>Atualizar</button>
+        </div>
+      )}
+      <ItensTabela itens={itens} />
+    </div>
+  );
 }
 
 // ─── Tab: Habilitação ─────────────────────────────────────────────────────────

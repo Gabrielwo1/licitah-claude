@@ -28,21 +28,22 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ id: 
   if (!parsed) return NextResponse.json({ licitacao: null, items: [] });
 
   const { cnpj, ano, sequencial } = parsed;
-  const baseUrl = `https://pncp.gov.br/api/consulta/v1/contratacoes/${cnpj}/${ano}/${sequencial}`;
+  const detailUrl = `https://pncp.gov.br/api/consulta/v1/contratacoes/${cnpj}/${ano}/${sequencial}`;
+  const itensUrl  = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens?pagina=1&tamanhoPagina=500`;
 
   try {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 8000);
+    const timeout = setTimeout(() => controller.abort(), 12000);
 
     const [detailRes, itemsRes] = await Promise.all([
-      fetch(baseUrl, {
+      fetch(detailUrl, {
         headers: { Accept: 'application/json' },
         signal: controller.signal,
-        next: { revalidate: 300 },
+        cache: 'no-store',
       }).catch(() => null),
-      fetch(`${baseUrl}/itens?pagina=1&tamanhoPagina=100`, {
+      fetch(itensUrl, {
         headers: { Accept: 'application/json' },
-        next: { revalidate: 600 },
+        cache: 'no-store',
       }).catch(() => null),
     ]);
 

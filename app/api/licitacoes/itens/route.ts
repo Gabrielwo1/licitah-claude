@@ -26,17 +26,27 @@ export async function GET(req: NextRequest) {
   if (!parsed) return NextResponse.json([]);
 
   const { cnpj, ano, sequencial } = parsed;
-  const url = `https://pncp.gov.br/api/consulta/v1/contratacoes/${cnpj}/${ano}/${sequencial}/itens?pagina=1&tamanhoPagina=500`;
+
+  // URL correta: /api/pncp/v1/orgaos/{cnpj}/compras/{ano}/{seq}/itens
+  // Aceita tamanhoPagina até 500. /consulta/v1/contratacoes/... retorna 404 para itens.
+  const url = `https://pncp.gov.br/api/pncp/v1/orgaos/${cnpj}/compras/${ano}/${sequencial}/itens?pagina=1&tamanhoPagina=500`;
 
   try {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), 12000);
+
     const res = await fetch(url, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 600 },
+      signal: controller.signal,
+      cache: 'no-store',
     });
+
+    clearTimeout(timer);
 
     if (!res.ok) return NextResponse.json([]);
 
     const data = await res.json();
+    // Retorna array direto (não { data: [...] })
     const items = Array.isArray(data) ? data : (data.data || []);
     return NextResponse.json(items);
   } catch {

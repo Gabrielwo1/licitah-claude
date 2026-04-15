@@ -79,7 +79,14 @@ export default function LicitacaoDetailPage() {
         if (detailRes.ok) {
           const d = await detailRes.json();
           if (d.licitacao) setLicitacao(d.licitacao);
-          setItems(d.items || []);
+          const fetchedItems = d.items || [];
+          setItems(fetchedItems);
+          // Salva itens no localStorage para o ItensTab do gerenciar usar
+          if (fetchedItems.length > 0) {
+            try {
+              localStorage.setItem(`pncp_itens:${id}`, JSON.stringify({ data: fetchedItems, ts: Date.now() }));
+            } catch {}
+          }
         }
         if (anotacoesRes.ok) {
           setAnotacoes(await anotacoesRes.json());
