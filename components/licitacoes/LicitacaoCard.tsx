@@ -126,7 +126,7 @@ export function LicitacaoCard({
       if (res.ok) {
         const data = await res.json();
         setFav(data.favorited);
-        if (!data.favorited) onFavoriteToggle?.(licitacao.numeroControlePNCP);
+        onFavoriteToggle?.(licitacao.numeroControlePNCP);
       }
     } finally {
       setFavLoading(false);
@@ -176,18 +176,23 @@ export function LicitacaoCard({
         <button
           onClick={toggleFavorite}
           disabled={favLoading}
-          className="flex items-center justify-center w-7 h-7 rounded transition-all"
-          title={fav ? 'Remover dos favoritos' : 'Adicionar aos favoritos'}
+          className="flex items-center justify-center rounded transition-all"
+          title={fav ? 'Remover dos favoritos' : 'Salvar nos favoritos'}
           style={{
-            border: `1.5px solid ${fav ? '#FF6600' : '#CFCFCF'}`,
-            backgroundColor: fav ? '#FFF5EE' : '#fff',
-            color: fav ? '#FF6600' : '#CFCFCF',
+            width: '32px', height: '32px',
+            border: `2px solid ${fav ? '#FF6600' : '#CFCFCF'}`,
+            backgroundColor: fav ? '#FF6600' : '#fff',
+            transform: favLoading ? 'scale(0.9)' : 'scale(1)',
+            transition: 'all 0.18s cubic-bezier(.34,1.56,.64,1)',
+            flexShrink: 0,
           }}
+          onMouseEnter={e => { if (!fav) (e.currentTarget as HTMLElement).style.borderColor = '#FF6600'; }}
+          onMouseLeave={e => { if (!fav) (e.currentTarget as HTMLElement).style.borderColor = '#CFCFCF'; }}
         >
           <Heart
-            className="h-3.5 w-3.5"
-            fill={fav ? '#FF6600' : 'none'}
-            stroke={fav ? '#FF6600' : '#CFCFCF'}
+            className="h-4 w-4"
+            fill={fav ? '#fff' : 'none'}
+            stroke={fav ? '#fff' : '#CFCFCF'}
             strokeWidth={2}
           />
         </button>

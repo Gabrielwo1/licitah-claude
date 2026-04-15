@@ -136,6 +136,7 @@ export default function LicitacoesPage() {
   const revalidatingRef = useRef(false);
   const [managedIds, setManagedIds] = useState<Set<string>>(new Set());
   const [clientPage, setClientPage] = useState(1);
+  const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   // Carrega cidades do IBGE quando o estado muda
   useEffect(() => {
@@ -155,15 +156,19 @@ export default function LicitacoesPage() {
       .finally(() => setLoadingCidades(false));
   }, [uf]);
 
-  // Carrega IDs das licitações gerenciadas para isentar do filtro de 3 meses
+  // Carrega IDs das licitações gerenciadas e favoritas em paralelo
   useEffect(() => {
-    fetch('/api/gerenciadas')
-      .then(r => r.ok ? r.json() : { data: [] })
-      .then((json: any) => {
-        const ids = new Set<string>((json.data || []).map((g: any) => g.lg_identificador as string));
-        setManagedIds(ids);
-      })
-      .catch(() => {});
+    Promise.all([
+      fetch('/api/gerenciadas').then(r => r.ok ? r.json() : { data: [] }),
+      fetch('/api/favoritos').then(r => r.ok ? r.json() : []),
+    ]).then(([gerJson, favJson]) => {
+      setManagedIds(new Set((gerJson.data || []).map((g: any) => g.lg_identificador as string)));
+      setFavoriteIds(new Set(
+        (Array.isArray(favJson) ? favJson : [])
+          .filter((f: any) => f.favorito_modulo === 'licitacao')
+          .map((f: any) => f.favorito_identificador as string)
+      ));
+    }).catch(() => {});
   }, []);
 
   // Auto-busca ao abrir o módulo
@@ -742,7 +747,16 @@ export default function LicitacoesPage() {
 
             {/* Cards */}
             {filtered.map((l) => (
-              <LicitacaoCard key={l.numeroControlePNCP} licitacao={l} />
+              <LicitacaoCard
+                key={l.numeroControlePNCP}
+                licitacao={l}
+                isFavorite={favoriteIds.has(l.numeroControlePNCP)}
+                onFavoriteToggle={(id) => setFavoriteIds(prev => {
+                  const next = new Set(prev);
+                  if (next.has(id)) next.delete(id); else next.add(id);
+                  return next;
+                })}
+              />
             ))}
 
             {/* Client-side pagination */}
