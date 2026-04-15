@@ -6,7 +6,7 @@ import Link from 'next/link';
 import {
   ArrowLeft, CheckSquare, FileText, Paperclip, ShieldCheck,
   Calendar, Plus, Trash2, Check, ChevronLeft, ChevronRight,
-  ExternalLink, Clock, X, Search, List,
+  ExternalLink, Clock, X, Search, List, FolderOpen, History,
 } from 'lucide-react';
 import { formatCurrency, formatDateTime, formatDate } from '@/lib/utils';
 
@@ -1516,15 +1516,219 @@ function HabilitacaoTab({ licitacaoId }: { licitacaoId: string }) {
 
 // ─── Main Page ────────────────────────────────────────────────────────────────
 
-type TabKey = 'tarefas' | 'anotacoes' | 'anexos' | 'habilitacao' | 'calendario' | 'itens';
+// ─── Tab: Arquivos ────────────────────────────────────────────────────────────
+
+function ArquivosTab({ licitacaoId }: { licitacaoId: string }) {
+  const [arquivos, setArquivos] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const key = `pncp_arquivos:${licitacaoId}`;
+    try {
+      const raw = localStorage.getItem(key);
+      if (raw) {
+        const { data, ts } = JSON.parse(raw);
+        if (Date.now() - ts < 24 * 3600 * 1000) { setArquivos(data); setLoading(false); return; }
+      }
+    } catch {}
+
+    fetch(`/api/licitacoes/arquivos?identificador=${encodeURIComponent(licitacaoId)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => {
+        setArquivos(data);
+        if (data.length > 0) try { localStorage.setItem(key, JSON.stringify({ data, ts: Date.now() })); } catch {}
+      })
+      .catch(() => setArquivos([]))
+      .finally(() => setLoading(false));
+  }, [licitacaoId]);
+
+  const tipoIcon: Record<string, string> = {
+    'Edital': '📄', 'Ata': '📋', 'Contrato': '📝', 'Termo': '📝',
+    'Outros Documentos': '📁', 'Anexo': '📎',
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '40px', color: '#7B7B7B', fontSize: '14px' }}>
+      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      Buscando arquivos no PNCP...
+    </div>
+  );
+
+  if (arquivos.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '48px 0', color: '#9B9B9B', fontSize: '13px' }}>
+      <FolderOpen className="h-10 w-10 mx-auto mb-3" style={{ color: '#E0E0E0' }} />
+      Nenhum arquivo publicado no PNCP para esta licitação.
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+      <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '4px' }}>
+        {arquivos.length} arquivo(s) publicado(s) no PNCP
+      </div>
+      {arquivos.map((arq: any) => {
+        const icon = tipoIcon[arq.tipoDocumentoNome] || '📁';
+        const ativo = arq.statusAtivo !== false;
+        return (
+          <div key={arq.sequencialDocumento}
+            style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '8px', padding: '14px 16px', display: 'flex', alignItems: 'center', gap: '14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+            <span style={{ fontSize: '24px', flexShrink: 0 }}>{icon}</span>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ fontWeight: 700, fontSize: '14px', color: '#262E3A', marginBottom: '3px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {arq.titulo || 'Documento'}
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
+                <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#F0F4FF', color: '#1a237e' }}>
+                  {arq.tipoDocumentoNome}
+                </span>
+                {arq.dataPublicacaoPncp && (
+                  <span style={{ fontSize: '12px', color: '#9B9B9B' }}>
+                    Publicado em {new Date(arq.dataPublicacaoPncp).toLocaleDateString('pt-BR')}
+                  </span>
+                )}
+                {!ativo && (
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', backgroundColor: '#FFF0EB', color: '#FF4500' }}>
+                    Inativo
+                  </span>
+                )}
+              </div>
+            </div>
+            <a
+              href={arq.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ display: 'flex', alignItems: 'center', gap: '6px', backgroundColor: '#1a237e', color: '#fff', borderRadius: '6px', padding: '7px 14px', fontSize: '12px', fontWeight: 700, textDecoration: 'none', whiteSpace: 'nowrap', flexShrink: 0 }}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Abrir
+            </a>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── Tab: Histórico ───────────────────────────────────────────────────────────
+
+function HistoricoTab({ licitacaoId }: { licitacaoId: string }) {
+  const [historico, setHistorico] = useState<any[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch(`/api/licitacoes/historico?identificador=${encodeURIComponent(licitacaoId)}`)
+      .then(r => r.ok ? r.json() : [])
+      .then((data: any[]) => setHistorico(data))
+      .catch(() => setHistorico([]))
+      .finally(() => setLoading(false));
+  }, [licitacaoId]);
+
+  const catColor: Record<string, { bg: string; color: string }> = {
+    'Contratação':                { bg: '#E3F2FD', color: '#1565C0' },
+    'Documento de Contratação':   { bg: '#E8F5E9', color: '#1B5E20' },
+    'Item de Contratação':        { bg: '#FFF3E0', color: '#E65100' },
+    'Resultado de Item':          { bg: '#F3E5F5', color: '#6A1B9A' },
+    'Resultado de Contratação':   { bg: '#FCE4EC', color: '#880E4F' },
+  };
+
+  const tipoColor: Record<string, string> = {
+    'Inclusão': '#259F46', 'Alteração': '#FF6600', 'Exclusão': '#FF4500', 'Cancelamento': '#FF4500',
+  };
+
+  if (loading) return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '40px', color: '#7B7B7B', fontSize: '14px' }}>
+      <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24" fill="none"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"/></svg>
+      Carregando histórico do PNCP...
+    </div>
+  );
+
+  if (historico.length === 0) return (
+    <div style={{ textAlign: 'center', padding: '48px 0', color: '#9B9B9B', fontSize: '13px' }}>
+      <History className="h-10 w-10 mx-auto mb-3" style={{ color: '#E0E0E0' }} />
+      Nenhum registro de histórico encontrado.
+    </div>
+  );
+
+  return (
+    <div>
+      <div style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '12px' }}>
+        {historico.length} evento(s) registrado(s) no PNCP
+      </div>
+      {/* Timeline */}
+      <div style={{ position: 'relative', paddingLeft: '28px' }}>
+        {/* Vertical line */}
+        <div style={{ position: 'absolute', left: '8px', top: '8px', bottom: '8px', width: '2px', backgroundColor: '#E8E8E8' }} />
+
+        {historico.map((h: any, idx: number) => {
+          const cat = catColor[h.categoriaLogManutencaoNome] || { bg: '#F5F5F5', color: '#7B7B7B' };
+          const tipoC = tipoColor[h.tipoLogManutencaoNome] || '#7B7B7B';
+          const data = h.logManutencaoDataInclusao
+            ? new Date(h.logManutencaoDataInclusao).toLocaleString('pt-BR')
+            : '—';
+
+          return (
+            <div key={idx} style={{ position: 'relative', marginBottom: '12px' }}>
+              {/* Dot */}
+              <div style={{ position: 'absolute', left: '-24px', top: '10px', width: '10px', height: '10px', borderRadius: '50%', backgroundColor: tipoC, border: '2px solid #fff', boxShadow: '0 0 0 2px ' + tipoC }} />
+
+              <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '8px', padding: '12px 14px', boxShadow: '0 1px 3px rgba(0,0,0,0.04)' }}>
+                {/* Header */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', marginBottom: '6px' }}>
+                  <span style={{ fontSize: '11px', fontWeight: 700, padding: '2px 8px', borderRadius: '4px', color: tipoC, backgroundColor: tipoC + '18' }}>
+                    {h.tipoLogManutencaoNome}
+                  </span>
+                  <span style={{ fontSize: '11px', fontWeight: 600, padding: '2px 8px', borderRadius: '4px', ...cat }}>
+                    {h.categoriaLogManutencaoNome}
+                  </span>
+                  <span style={{ fontSize: '11px', color: '#9B9B9B', marginLeft: 'auto' }}>{data}</span>
+                </div>
+
+                {/* Details */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px 16px' }}>
+                  {h.usuarioNome && (
+                    <span style={{ fontSize: '12px', color: '#7B7B7B' }}>
+                      👤 <strong style={{ color: '#262E3A' }}>{h.usuarioNome}</strong>
+                    </span>
+                  )}
+                  {h.documentoTitulo && (
+                    <span style={{ fontSize: '12px', color: '#7B7B7B' }}>
+                      📄 {h.documentoTitulo}
+                      {h.documentoTipo && <span style={{ color: '#9B9B9B' }}> ({h.documentoTipo})</span>}
+                    </span>
+                  )}
+                  {h.itemNumero != null && (
+                    <span style={{ fontSize: '12px', color: '#7B7B7B' }}>
+                      📦 Item #{h.itemNumero}
+                    </span>
+                  )}
+                  {h.justificativa && (
+                    <span style={{ fontSize: '12px', color: '#7B7B7B', width: '100%', marginTop: '2px' }}>
+                      💬 {h.justificativa}
+                    </span>
+                  )}
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── Tab Keys ─────────────────────────────────────────────────────────────────
+
+type TabKey = 'tarefas' | 'anotacoes' | 'anexos' | 'habilitacao' | 'calendario' | 'itens' | 'arquivos' | 'historico';
 
 const TABS: { key: TabKey; label: string; icon: React.ElementType }[] = [
-  { key: 'tarefas', label: 'Suas Tarefas', icon: CheckSquare },
-  { key: 'itens', label: 'Itens', icon: List },
-  { key: 'anotacoes', label: 'Anotações', icon: FileText },
-  { key: 'anexos', label: 'Anexos', icon: Paperclip },
+  { key: 'tarefas',   label: 'Suas Tarefas', icon: CheckSquare },
+  { key: 'itens',     label: 'Itens',        icon: List },
+  { key: 'arquivos',  label: 'Arquivos',     icon: FolderOpen },
+  { key: 'historico', label: 'Histórico',    icon: History },
+  { key: 'anotacoes', label: 'Anotações',   icon: FileText },
+  { key: 'anexos',    label: 'Anexos',       icon: Paperclip },
   { key: 'habilitacao', label: 'Habilitação', icon: ShieldCheck },
-  { key: 'calendario', label: 'Calendário', icon: Calendar },
+  { key: 'calendario', label: 'Calendário',  icon: Calendar },
 ];
 
 export default function GerenciarLicitacaoPage() {
@@ -1710,6 +1914,8 @@ export default function GerenciarLicitacaoPage() {
       <div>
         {activeTab === 'tarefas' && <TarefasTab licitacaoId={licitacaoId} />}
         {activeTab === 'itens' && <ItensTab licitacaoId={licitacaoId} />}
+        {activeTab === 'arquivos' && <ArquivosTab licitacaoId={licitacaoId} />}
+        {activeTab === 'historico' && <HistoricoTab licitacaoId={licitacaoId} />}
         {activeTab === 'anotacoes' && <AnotacoesTab licitacaoId={licitacaoId} />}
         {activeTab === 'anexos' && <AnexosTab licitacaoId={licitacaoId} />}
         {activeTab === 'habilitacao' && <HabilitacaoTab licitacaoId={licitacaoId} />}
