@@ -439,17 +439,27 @@ function LicitacaoMiniCard({ l }: { l: any }) {
   );
 }
 
-// ── Definir Modal (2 steps) ───────────────────────────────────────────────────
+// ── Definir Modal (single screen) ────────────────────────────────────────────
+
+const UF_NAMES: Record<string, string> = {
+  AC:'Acre', AL:'Alagoas', AM:'Amazonas', AP:'Amapá', BA:'Bahia', CE:'Ceará',
+  DF:'Distrito Federal', ES:'Espírito Santo', GO:'Goiás', MA:'Maranhão',
+  MG:'Minas Gerais', MS:'Mato Grosso do Sul', MT:'Mato Grosso', PA:'Pará',
+  PB:'Paraíba', PE:'Pernambuco', PI:'Piauí', PR:'Paraná', RJ:'Rio de Janeiro',
+  RN:'Rio Grande do Norte', RO:'Rondônia', RR:'Roraima', RS:'Rio Grande do Sul',
+  SC:'Santa Catarina', SE:'Sergipe', SP:'São Paulo', TO:'Tocantins',
+};
 
 function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
-  const [step, setStep] = useState(1);
   const [keywords, setKeywords] = useState<string[]>([]);
   const [inputKw, setInputKw] = useState('');
   const [scope, setScope] = useState<'brasil' | 'estado' | 'cidade'>('brasil');
   const [uf, setUf] = useState('');
   const [cidade, setCidade] = useState('');
   const [cidades, setCidades] = useState<{ nome: string; id: string }[]>([]);
+  const [loadingCidades, setLoadingCidades] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [loadingConfig, setLoadingConfig] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
   // Load existing config
@@ -465,13 +475,17 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
         if (reg.includes(':')) { const [u, c] = reg.split(':'); setUf(u); setCidade(c); setScope('cidade'); }
         else if (reg) { setUf(reg); setScope('estado'); }
       })
-      .catch(() => {});
+      .catch(() => {})
+      .finally(() => setLoadingConfig(false));
   }, []);
 
   useEffect(() => {
     if (!uf) { setCidades([]); return; }
+    setLoadingCidades(true);
     fetch(`https://servicodados.ibge.gov.br/api/v1/localidades/estados/${uf}/municipios?orderBy=nome`)
-      .then(r => r.json()).then((d: any[]) => setCidades(d.map(m => ({ nome: m.nome, id: String(m.id) }))));
+      .then(r => r.json())
+      .then((d: any[]) => setCidades(d.map(m => ({ nome: m.nome, id: String(m.id) }))))
+      .finally(() => setLoadingCidades(false));
   }, [uf]);
 
   function addKeyword() {
@@ -482,6 +496,7 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   }
 
   async function save() {
+    if (keywords.length === 0) return;
     setSaving(true);
     let regioes = '';
     if (scope === 'estado') regioes = uf;
@@ -497,129 +512,215 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     } finally { setSaving(false); }
   }
 
-  return (
-    <div style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(0,0,0,0.5)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px' }}
-      onClick={onClose}>
-      <div style={{ backgroundColor: '#fff', borderRadius: '12px', width: '100%', maxWidth: '640px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)' }}
-        onClick={e => e.stopPropagation()}>
+  const canSave = keywords.length > 0 && (scope === 'brasil' || !!uf);
 
-        {/* Header */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '24px 28px 20px' }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 800, color: '#1a1a2e', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            {step === 1 ? 'Palavras-chaves de interesse do seu negócio' : 'Região de interesse'}
-          </h2>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B', padding: '4px' }}>
+  const scopeOptions = [
+    { value: 'brasil', icon: '🇧🇷', label: 'Brasil inteiro', desc: 'Busca em todos os estados' },
+    { value: 'estado', icon: '📍', label: 'Estado específico', desc: 'Filtra por um estado' },
+    { value: 'cidade', icon: '🏙️', label: 'Estado + Cidade', desc: 'Filtra por cidade exata' },
+  ] as const;
+
+  return (
+    <div
+      style={{ position: 'fixed', inset: 0, backgroundColor: 'rgba(15,23,42,0.6)', zIndex: 9000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '16px', backdropFilter: 'blur(2px)' }}
+      onClick={onClose}
+    >
+      <div
+        style={{ backgroundColor: '#fff', borderRadius: '16px', width: '100%', maxWidth: '680px', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 24px 80px rgba(0,0,0,0.3)' }}
+        onClick={e => e.stopPropagation()}
+      >
+        {/* ── Header ── */}
+        <div style={{ padding: '24px 28px 20px', borderBottom: '1px solid #F0F0F0', display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '12px', flexShrink: 0 }}>
+          <div>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '4px' }}>
+              <div style={{ width: '36px', height: '36px', borderRadius: '10px', backgroundColor: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '18px' }}>🎯</div>
+              <h2 style={{ fontSize: '18px', fontWeight: 800, color: '#1a1a2e', margin: 0 }}>Configurar Oportunidades</h2>
+            </div>
+            <p style={{ fontSize: '13px', color: '#7B7B7B', margin: 0, paddingLeft: '46px' }}>
+              Defina os termos e a região para receber oportunidades relevantes ao seu negócio
+            </p>
+          </div>
+          <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B', padding: '4px', flexShrink: 0, borderRadius: '6px' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#F5F5F5')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'transparent')}>
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div style={{ padding: '0 28px 28px' }}>
-          {step === 1 ? (
+        {/* ── Body ── */}
+        <div style={{ overflowY: 'auto', flex: 1, padding: '24px 28px' }}>
+          {loadingConfig ? (
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '120px', gap: '10px' }}>
+              <Loader2 className="h-5 w-5 animate-spin" style={{ color: '#FF6600' }} />
+              <span style={{ color: '#7B7B7B', fontSize: '14px' }}>Carregando configurações...</span>
+            </div>
+          ) : (
             <>
-              <div style={{ marginBottom: '20px' }}>
-                <label style={{ display: 'block', fontSize: '14px', fontWeight: 600, color: '#262E3A', marginBottom: '6px' }}>Palavras-chaves</label>
-                <div style={{ fontSize: '13px', color: '#FF6600', marginBottom: '10px' }}>
-                  Ex: "impressora", "aluguel de veículos", "consultoria ambiental"
+              {/* ── Seção 1: Palavras-chave ── */}
+              <div style={{ marginBottom: '28px' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#FF6600', color: '#fff', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>1</div>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A' }}>Palavras-chave do seu negócio</span>
                 </div>
-                <div style={{ display: 'flex', gap: '8px' }}>
+                <p style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '12px', marginLeft: '32px' }}>
+                  Adicione termos que descrevem seus produtos ou serviços. Ex: <em>"impressora"</em>, <em>"consultoria ambiental"</em>
+                </p>
+
+                {/* Input row */}
+                <div style={{ display: 'flex', gap: '8px', marginLeft: '32px', marginBottom: '12px' }}>
                   <input
                     ref={inputRef}
                     type="text"
                     value={inputKw}
                     onChange={e => setInputKw(e.target.value)}
                     onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addKeyword(); } }}
-                    placeholder="Digite uma palavra-chave..."
-                    style={{ flex: 1, height: '44px', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 14px', fontSize: '14px', outline: 'none' }}
-                    onFocus={e => (e.currentTarget.style.borderColor = '#1a237e')}
-                    onBlur={e => (e.currentTarget.style.borderColor = '#E0E0E0')}
+                    placeholder="Digite e pressione Enter ou clique em +"
+                    style={{ flex: 1, height: '44px', border: '2px solid #E8E8E8', borderRadius: '10px', padding: '0 14px', fontSize: '14px', outline: 'none', transition: 'border-color 0.15s', color: '#262E3A' }}
+                    onFocus={e => (e.currentTarget.style.borderColor = '#FF6600')}
+                    onBlur={e => (e.currentTarget.style.borderColor = '#E8E8E8')}
                   />
                   <button
                     onClick={addKeyword}
-                    style={{ width: '44px', height: '44px', backgroundColor: '#262E3A', color: '#fff', border: 'none', borderRadius: '8px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}
+                    disabled={!inputKw.trim()}
+                    style={{ width: '44px', height: '44px', backgroundColor: inputKw.trim() ? '#FF6600' : '#E8E8E8', color: inputKw.trim() ? '#fff' : '#9B9B9B', border: 'none', borderRadius: '10px', cursor: inputKw.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s' }}
                   >
                     <Plus className="h-5 w-5" />
                   </button>
                 </div>
-              </div>
 
-              {/* Keyword chips */}
-              {keywords.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', marginBottom: '24px' }}>
-                  {keywords.map(kw => (
-                    <span key={kw} style={{ backgroundColor: '#1a237e', color: '#fff', fontSize: '13px', fontWeight: 600, padding: '6px 12px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                {/* Chips container */}
+                <div style={{ marginLeft: '32px', minHeight: '48px', backgroundColor: '#FAFAFA', border: '1px dashed #E0E0E0', borderRadius: '10px', padding: '10px 12px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignContent: 'flex-start' }}>
+                  {keywords.length === 0 ? (
+                    <span style={{ fontSize: '13px', color: '#C0C0C0', fontStyle: 'italic', lineHeight: '28px' }}>Nenhuma palavra-chave adicionada ainda</span>
+                  ) : keywords.map(kw => (
+                    <span key={kw} style={{ backgroundColor: '#1a237e', color: '#fff', fontSize: '13px', fontWeight: 600, padding: '5px 10px 5px 14px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', transition: 'all 0.15s' }}>
                       {kw}
-                      <button onClick={() => setKeywords(prev => prev.filter(k => k !== kw))}
-                        style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex', alignItems: 'center' }}>
-                        <X className="h-3.5 w-3.5" />
+                      <button
+                        onClick={() => setKeywords(prev => prev.filter(k => k !== kw))}
+                        style={{ background: 'rgba(255,255,255,0.25)', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0, transition: 'background 0.12s' }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.4)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)')}
+                      >
+                        <X className="h-3 w-3" />
                       </button>
                     </span>
                   ))}
                 </div>
-              )}
-
-              <button
-                onClick={() => keywords.length > 0 && setStep(2)}
-                disabled={keywords.length === 0}
-                style={{ width: '100%', height: '50px', backgroundColor: keywords.length === 0 ? '#9B9B9B' : '#1a237e', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700, cursor: keywords.length === 0 ? 'not-allowed' : 'pointer' }}
-              >
-                Próximo
-              </button>
-            </>
-          ) : (
-            <>
-              {/* Step 2: Region */}
-              <div style={{ marginBottom: '20px' }}>
-                {[
-                  { value: 'brasil', label: '🇧🇷 Brasil inteiro' },
-                  { value: 'estado', label: '📍 Estado específico' },
-                  { value: 'cidade', label: '🏙️ Estado + Cidade' },
-                ].map(opt => (
-                  <label key={opt.value}
-                    style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '12px 16px', borderRadius: '8px', border: `2px solid ${scope === opt.value ? '#FF6600' : '#E0E0E0'}`, cursor: 'pointer', marginBottom: '8px', backgroundColor: scope === opt.value ? '#FFF8F3' : '#fff', transition: 'all 0.15s' }}>
-                    <input type="radio" name="scope" value={opt.value} checked={scope === (opt.value as any)} onChange={() => setScope(opt.value as any)}
-                      style={{ accentColor: '#FF6600', width: '16px', height: '16px' }} />
-                    <span style={{ fontSize: '14px', fontWeight: 600, color: '#262E3A' }}>{opt.label}</span>
-                  </label>
-                ))}
+                {keywords.length > 0 && (
+                  <div style={{ marginLeft: '32px', marginTop: '6px', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                    <span style={{ fontSize: '12px', color: '#9B9B9B' }}>{keywords.length} palavra{keywords.length !== 1 ? 's' : ''}-chave{keywords.length !== 1 ? 's' : ''} configurada{keywords.length !== 1 ? 's' : ''}</span>
+                    <button onClick={() => setKeywords([])} style={{ fontSize: '12px', color: '#FF4500', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                      Limpar tudo
+                    </button>
+                  </div>
+                )}
               </div>
 
-              {(scope === 'estado' || scope === 'cidade') && (
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#262E3A', marginBottom: '6px' }}>Estado</label>
-                  <select value={uf} onChange={e => { setUf(e.target.value); setCidade(''); }}
-                    style={{ width: '100%', height: '40px', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 12px', fontSize: '14px', appearance: 'none' }}>
-                    <option value="">Selecione o estado</option>
-                    {UFS.map(u => <option key={u} value={u}>{u}</option>)}
-                  </select>
-                </div>
-              )}
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid #F0F0F0', marginBottom: '28px' }} />
 
-              {scope === 'cidade' && cidades.length > 0 && (
-                <div style={{ marginBottom: '16px' }}>
-                  <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#262E3A', marginBottom: '6px' }}>Cidade</label>
-                  <select value={cidade} onChange={e => setCidade(e.target.value)}
-                    style={{ width: '100%', height: '40px', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 12px', fontSize: '14px', appearance: 'none' }}>
-                    <option value="">Todas as cidades</option>
-                    {cidades.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
-                  </select>
+              {/* ── Seção 2: Região ── */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#FF6600', color: '#fff', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>2</div>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A' }}>Região de abrangência</span>
                 </div>
-              )}
+                <p style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '14px', marginLeft: '32px' }}>
+                  Escolha onde você quer buscar oportunidades
+                </p>
 
-              <div style={{ display: 'flex', gap: '10px', marginTop: '8px' }}>
-                <button onClick={() => setStep(1)}
-                  style={{ flex: 1, height: '50px', backgroundColor: '#F5F5F5', color: '#262E3A', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700, cursor: 'pointer' }}>
-                  ← Voltar
-                </button>
-                <button
-                  onClick={save}
-                  disabled={saving || (scope !== 'brasil' && !uf)}
-                  style={{ flex: 2, height: '50px', backgroundColor: saving ? '#9B9B9B' : '#FF6600', color: '#fff', border: 'none', borderRadius: '8px', fontSize: '15px', fontWeight: 700, cursor: saving ? 'not-allowed' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px' }}
-                >
-                  {saving ? <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</> : 'Salvar oportunidades'}
-                </button>
+                {/* Scope cards */}
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,1fr)', gap: '10px', marginLeft: '32px', marginBottom: '16px' }}>
+                  {scopeOptions.map(opt => (
+                    <button
+                      key={opt.value}
+                      onClick={() => { setScope(opt.value); if (opt.value === 'brasil') { setUf(''); setCidade(''); } }}
+                      style={{
+                        padding: '14px 12px', borderRadius: '12px', textAlign: 'center', cursor: 'pointer',
+                        border: `2px solid ${scope === opt.value ? '#FF6600' : '#E8E8E8'}`,
+                        backgroundColor: scope === opt.value ? '#FFF3E8' : '#fff',
+                        transition: 'all 0.15s',
+                      }}
+                    >
+                      <div style={{ fontSize: '22px', marginBottom: '6px' }}>{opt.icon}</div>
+                      <div style={{ fontSize: '13px', fontWeight: 700, color: scope === opt.value ? '#FF6600' : '#262E3A', marginBottom: '3px' }}>{opt.label}</div>
+                      <div style={{ fontSize: '11px', color: '#9B9B9B' }}>{opt.desc}</div>
+                    </button>
+                  ))}
+                </div>
+
+                {/* UF select */}
+                {(scope === 'estado' || scope === 'cidade') && (
+                  <div style={{ marginLeft: '32px', display: 'grid', gridTemplateColumns: scope === 'cidade' ? '1fr 1fr' : '1fr', gap: '12px' }}>
+                    <div>
+                      <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#262E3A', marginBottom: '6px' }}>Estado</label>
+                      <select
+                        value={uf}
+                        onChange={e => { setUf(e.target.value); setCidade(''); }}
+                        style={{ width: '100%', height: '42px', border: '2px solid #E8E8E8', borderRadius: '10px', padding: '0 12px', fontSize: '14px', color: '#262E3A', outline: 'none', cursor: 'pointer', backgroundColor: '#fff' }}
+                      >
+                        <option value="">Selecione o estado</option>
+                        {UFS.map(u => <option key={u} value={u}>{UF_NAMES[u] || u} ({u})</option>)}
+                      </select>
+                    </div>
+
+                    {scope === 'cidade' && (
+                      <div>
+                        <label style={{ display: 'block', fontSize: '13px', fontWeight: 600, color: '#262E3A', marginBottom: '6px' }}>
+                          Cidade
+                          {loadingCidades && <Loader2 className="h-3 w-3 animate-spin inline ml-2" style={{ color: '#FF6600' }} />}
+                        </label>
+                        <select
+                          value={cidade}
+                          onChange={e => setCidade(e.target.value)}
+                          disabled={!uf || loadingCidades}
+                          style={{ width: '100%', height: '42px', border: '2px solid #E8E8E8', borderRadius: '10px', padding: '0 12px', fontSize: '14px', color: '#262E3A', outline: 'none', cursor: uf ? 'pointer' : 'not-allowed', backgroundColor: uf ? '#fff' : '#FAFAFA', opacity: uf ? 1 : 0.6 }}
+                        >
+                          <option value="">Todas as cidades</option>
+                          {cidades.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
+                        </select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Summary pill */}
+                {(scope === 'brasil' || uf) && (
+                  <div style={{ marginLeft: '32px', marginTop: '14px', display: 'inline-flex', alignItems: 'center', gap: '6px', backgroundColor: '#F0F4FF', border: '1px solid #C7D2FE', borderRadius: '20px', padding: '6px 14px' }}>
+                    <MapPin className="h-3.5 w-3.5" style={{ color: '#1a237e' }} />
+                    <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a237e' }}>
+                      {scope === 'brasil' ? 'Buscando em todo o Brasil' : scope === 'estado' ? `Apenas ${UF_NAMES[uf] || uf}` : cidade ? `${cidade} - ${uf}` : `Todo o estado de ${UF_NAMES[uf] || uf}`}
+                    </span>
+                  </div>
+                )}
               </div>
             </>
           )}
+        </div>
+
+        {/* ── Footer ── */}
+        <div style={{ padding: '16px 28px 24px', borderTop: '1px solid #F0F0F0', display: 'flex', gap: '12px', flexShrink: 0 }}>
+          <button
+            onClick={onClose}
+            style={{ flex: 1, height: '48px', backgroundColor: '#F5F5F5', color: '#262E3A', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 700, cursor: 'pointer' }}
+            onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#EBEBEB')}
+            onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#F5F5F5')}
+          >
+            Cancelar
+          </button>
+          <button
+            onClick={save}
+            disabled={!canSave || saving}
+            style={{ flex: 2, height: '48px', backgroundColor: canSave && !saving ? '#FF6600' : '#E0E0E0', color: canSave && !saving ? '#fff' : '#9B9B9B', border: 'none', borderRadius: '10px', fontSize: '14px', fontWeight: 700, cursor: canSave && !saving ? 'pointer' : 'not-allowed', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', transition: 'all 0.15s' }}
+            onMouseEnter={e => { if (canSave && !saving) (e.currentTarget as HTMLElement).style.backgroundColor = '#e05a00'; }}
+            onMouseLeave={e => { if (canSave && !saving) (e.currentTarget as HTMLElement).style.backgroundColor = '#FF6600'; }}
+          >
+            {saving ? (
+              <><Loader2 className="h-4 w-4 animate-spin" /> Salvando...</>
+            ) : (
+              <>✓ Salvar oportunidades {keywords.length > 0 && <span style={{ opacity: 0.8, fontSize: '12px' }}>({keywords.length} termo{keywords.length !== 1 ? 's' : ''})</span>}</>
+            )}
+          </button>
         </div>
       </div>
     </div>
