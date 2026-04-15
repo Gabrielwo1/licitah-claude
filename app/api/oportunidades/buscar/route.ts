@@ -3,6 +3,47 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 
+// ── Parse helpers ─────────────────────────────────────────────────────────────
+
+/** Handles: plain string, JSON array ["kw1","kw2"], double-encoded JSON */
+function parseKeywords(raw: string | null | undefined): string[] {
+  if (!raw) return [];
+  const trim = raw.trim();
+  try {
+    const p1 = JSON.parse(trim);
+    if (Array.isArray(p1)) return p1.map(String).filter(Boolean);
+    if (typeof p1 === 'string') {
+      // double-encoded: parse once more
+      try {
+        const p2 = JSON.parse(p1);
+        if (Array.isArray(p2)) return p2.map(String).filter(Boolean);
+        return [p2].filter(Boolean);
+      } catch { return [p1].filter(Boolean); }
+    }
+    return [];
+  } catch {
+    return trim.split(',').map(s => s.trim()).filter(Boolean);
+  }
+}
+
+/** Handles: "", "SP", "SP:Campinas", legacy JSON ["SP","RJ",...] */
+function parseRegion(raw: string): { uf: string; cidade: string } {
+  if (!raw) return { uf: '', cidade: '' };
+  const trim = raw.trim();
+  if (trim.startsWith('[')) {
+    try {
+      const arr = JSON.parse(trim);
+      if (Array.isArray(arr) && arr.length > 0) return { uf: String(arr[0]), cidade: '' };
+    } catch {}
+    return { uf: '', cidade: '' };
+  }
+  if (trim.includes(':')) {
+    const idx = trim.indexOf(':');
+    return { uf: trim.slice(0, idx), cidade: trim.slice(idx + 1) };
+  }
+  return { uf: trim, cidade: '' };
+}
+
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 const MODALIDADES = ['7', '8', '14', '5', '6', '15', '11'];
 
@@ -50,14 +91,13 @@ export async function GET(req: NextRequest) {
 
   const row = rows[0];
   const regioes = row.licitacoes_oportunidade_regioes || '';
-  let keywords: string[] = [];
-  try { keywords = JSON.parse(row.licitacoes_oportunidade_tagmento); } catch {
-    keywords = row.licitacoes_oportunidade_tagmento?.split(',').map((s: string) => s.trim()).filter(Boolean) || [];
-  }
+
+  // Robust keyword parsing — handles plain string, JSON array, and double-encoded JSON
+  const keywords = parseKeywords(row.licitacoes_oportunidade_tagmento);
   if (keywords.length === 0) return NextResponse.json({ keywords: [], data: [] });
 
-  // Parse region
-  const [uf, cidade] = regioes.includes(':') ? regioes.split(':') : [regioes, ''];
+  // Robust region parsing — handles "SP", "SP:City", and legacy ["SP","RJ",...] arrays
+  const { uf, cidade } = parseRegion(regioes);
 
   // Search PNCP for all modalidades
   const results = await Promise.allSettled(

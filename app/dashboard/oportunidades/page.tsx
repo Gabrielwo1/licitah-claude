@@ -53,9 +53,11 @@ export default function OportunidadesPage() {
     try {
       const raw = localStorage.getItem(cacheKey);
       if (raw) {
-        const { data, ts, kws } = JSON.parse(raw);
+        const { data, ts, kws, uf: cachedUf } = JSON.parse(raw);
         if (Date.now() - ts < 4 * 3600 * 1000) {
-          setLicitacoes(data); setKeywords(kws || []); setHasConfig(kws?.length > 0);
+          const cleanKws: string[] = Array.isArray(kws) ? kws.filter(Boolean) : [];
+          setLicitacoes(data); setKeywords(cleanKws); setUfConfig(cachedUf || '');
+          setHasConfig(cleanKws.length > 0);
           setLoading(false); return;
         }
       }
@@ -64,12 +66,16 @@ export default function OportunidadesPage() {
     fetch('/api/oportunidades/buscar')
       .then(r => r.ok ? r.json() : { keywords: [], data: [] })
       .then((json: any) => {
-        const kws = json.keywords || [];
+        const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
         const data = json.data || [];
-        setKeywords(kws); setUfConfig(json.uf || ''); setLicitacoes(data);
+        // Build readable region label
+        let regionLabel = '';
+        if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
+        else if (json.uf) regionLabel = json.uf;
+        setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data);
         setHasConfig(kws.length > 0);
         if (kws.length > 0) {
-          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws })); } catch {}
+          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws, uf: regionLabel })); } catch {}
         }
       })
       .catch(() => {})
@@ -102,11 +108,14 @@ export default function OportunidadesPage() {
     fetch('/api/oportunidades/buscar')
       .then(r => r.ok ? r.json() : { keywords: [], data: [] })
       .then((json: any) => {
-        const kws = json.keywords || [];
+        const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
         const data = json.data || [];
-        setKeywords(kws); setUfConfig(json.uf || ''); setLicitacoes(data); setHasConfig(kws.length > 0);
+        let regionLabel = '';
+        if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
+        else if (json.uf) regionLabel = json.uf;
+        setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data); setHasConfig(kws.length > 0);
         if (kws.length > 0) {
-          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws })); } catch {}
+          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws, uf: regionLabel })); } catch {}
         }
       })
       .finally(() => setLoading(false));
@@ -462,18 +471,32 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
   const [loadingConfig, setLoadingConfig] = useState(true);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Load existing config
+  // Load existing config — API now returns normalized data (clean keywords + region)
   useEffect(() => {
     fetch('/api/oportunidades')
       .then(r => r.ok ? r.json() : [])
       .then((rows: any[]) => {
         if (rows.length === 0) return;
         const row = rows[0];
-        try { setKeywords(JSON.parse(row.licitacoes_oportunidade_tagmento)); }
-        catch { setKeywords(row.licitacoes_oportunidade_tagmento?.split(',').map((s: string) => s.trim()).filter(Boolean) || []); }
+
+        // keywords: always a clean JSON array from API
+        let kws: string[] = [];
+        try {
+          const parsed = JSON.parse(row.licitacoes_oportunidade_tagmento);
+          kws = Array.isArray(parsed) ? parsed.map(String).filter(Boolean) : [];
+        } catch {
+          kws = (row.licitacoes_oportunidade_tagmento || '').split(',').map((s: string) => s.trim()).filter(Boolean);
+        }
+        setKeywords(kws);
+
+        // region: already normalized to "" | "SP" | "SP:City"
         const reg = row.licitacoes_oportunidade_regioes || '';
-        if (reg.includes(':')) { const [u, c] = reg.split(':'); setUf(u); setCidade(c); setScope('cidade'); }
-        else if (reg) { setUf(reg); setScope('estado'); }
+        if (reg.includes(':')) {
+          const idx = reg.indexOf(':');
+          setUf(reg.slice(0, idx)); setCidade(reg.slice(idx + 1)); setScope('cidade');
+        } else if (reg) {
+          setUf(reg); setScope('estado');
+        }
       })
       .catch(() => {})
       .finally(() => setLoadingConfig(false));
