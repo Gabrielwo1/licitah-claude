@@ -75,7 +75,7 @@ function LeftPanel() {
 
       {/* Logo */}
       <div style={{ marginBottom: '48px', position: 'relative', zIndex: 1 }}>
-        <Image src="/logo.png" alt="Licitah" width={150} height={44} style={{ objectFit: 'contain', height: '40px', width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
+        <Image src="/logo.png" alt="Licitah" width={150} height={44} style={{ objectFit: 'contain', height: '40px', width: 'auto' }} priority />
       </div>
 
       {/* Headline */}

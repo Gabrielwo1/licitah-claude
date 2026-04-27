@@ -5,7 +5,7 @@ import { signIn } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
-import { Eye, EyeOff, Mail, Lock, TrendingUp, FileSearch, Bell, ArrowRight, CheckCircle2 } from 'lucide-react';
+import { Eye, EyeOff, Mail, Lock, TrendingUp, FileSearch, Bell, ArrowRight } from 'lucide-react';
 
 // ── Decorative left panel ──────────────────────────────────────────────────────
 
@@ -29,7 +29,7 @@ function LeftPanel() {
 
       {/* Logo */}
       <div style={{ marginBottom: '52px', position: 'relative', zIndex: 1 }}>
-        <Image src="/logo.png" alt="Licitah" width={160} height={48} style={{ objectFit: 'contain', height: '44px', width: 'auto', filter: 'brightness(0) invert(1)' }} priority />
+        <Image src="/logo.png" alt="Licitah" width={160} height={48} style={{ objectFit: 'contain', height: '44px', width: 'auto' }} priority />
       </div>
 
       {/* Headline */}
@@ -131,21 +131,8 @@ export default function LoginPage() {
 
       {/* Right panel */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff', position: 'relative' }}>
-        {/* Top nav */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', padding: '24px 48px', gap: '14px' }}>
-          <span style={{ fontSize: '13.5px', color: '#6B7280' }}>Não é membro?</span>
-          <Link href="/cadastro" style={{
-            backgroundColor: '#0a1175', color: '#fff', borderRadius: '10px',
-            padding: '10px 22px', fontSize: '13.5px', fontWeight: 700,
-            textDecoration: 'none', transition: 'all 0.15s',
-            display: 'inline-flex', alignItems: 'center', gap: '6px',
-          }}>
-            Cadastrar-se <ArrowRight size={14} />
-          </Link>
-        </div>
-
         {/* Form area */}
-        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '24px 48px 48px' }}>
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '48px' }}>
           <div style={{ width: '100%', maxWidth: '400px' }}>
             {/* Title */}
             <div style={{ marginBottom: '36px' }}>
@@ -252,20 +239,15 @@ export default function LoginPage() {
                   <>Entrar <ArrowRight size={16} /></>
                 )}
               </button>
-            </form>
 
-            {/* Benefits */}
-            <div style={{ marginTop: '32px', padding: '18px', backgroundColor: '#F8FAFF', border: '1px solid #E0E7FF', borderRadius: '12px' }}>
-              <p style={{ fontSize: '12px', fontWeight: 700, color: '#0a1175', marginBottom: '10px', textTransform: 'uppercase', letterSpacing: '0.5px' }}>✦ Incluso na sua conta</p>
-              <div style={{ display: 'flex', flexDirection: 'column', gap: '7px' }}>
-                {['Busca em todas as modalidades do PNCP', 'Alertas por palavra-chave e região', 'Gestão completa com tarefas e anotações'].map((t, i) => (
-                  <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-                    <CheckCircle2 size={14} color="#4ADE80" strokeWidth={2.5} />
-                    <span style={{ fontSize: '12.5px', color: '#475569' }}>{t}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+              {/* Signup link */}
+              <p style={{ textAlign: 'center', fontSize: '13.5px', color: '#6B7280', marginTop: '20px' }}>
+                Não tem uma conta?{' '}
+                <Link href="/cadastro" style={{ color: '#FF6600', fontWeight: 700, textDecoration: 'none' }}>
+                  Cadastre-se grátis →
+                </Link>
+              </p>
+            </form>
           </div>
         </div>
       </div>
