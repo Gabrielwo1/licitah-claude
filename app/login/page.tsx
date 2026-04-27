@@ -125,14 +125,18 @@ export default function LoginPage() {
     setLoading(true);
     setError('');
 
-    const result = await signIn('credentials', { email, password: senha, redirect: false });
-    setLoading(false);
-
-    if (result?.error) {
-      setError('Email ou senha incorretos. Verifique suas credenciais.');
-    } else {
-      router.push('/dashboard');
-      router.refresh();
+    try {
+      const result = await signIn('credentials', { email, password: senha, redirect: false });
+      if (result?.error) {
+        setError('Email ou senha incorretos. Verifique suas credenciais.');
+      } else {
+        router.push('/dashboard');
+        router.refresh();
+      }
+    } catch {
+      setError('Erro de conexão. Verifique sua internet e tente novamente.');
+    } finally {
+      setLoading(false);
     }
   }
 

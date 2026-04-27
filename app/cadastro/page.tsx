@@ -158,23 +158,51 @@ export default function CadastroPage() {
     if (form.senha.length < 6) { setError('A senha deve ter pelo menos 6 caracteres.'); return; }
 
     setLoading(true);
-    const res = await fetch('/api/usuarios', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        nome: form.nome, email: form.email, senha: form.senha,
-        telefone: form.telefone, cpf: form.cpf,
-        empresaNome: form.empresaNome, empresaCnpj: form.empresaCnpj,
-      }),
-    });
+    try {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 15000);
 
-    const data = await res.json();
-    setLoading(false);
+      const res = await fetch('/api/usuarios', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        signal: controller.signal,
+        body: JSON.stringify({
+          nome: form.nome, email: form.email, senha: form.senha,
+          telefone: form.telefone, cpf: form.cpf,
+          empresaNome: form.empresaNome, empresaCnpj: form.empresaCnpj,
+        }),
+      });
+      clearTimeout(timer);
 
-    if (!res.ok) { setError(data.error || 'Erro ao criar conta.'); return; }
+      const data = await res.json();
 
-    await signIn('credentials', { email: form.email, password: form.senha, redirect: false });
-    router.push('/dashboard');
+      if (!res.ok) {
+        setError(data.error || 'Erro ao criar conta. Tente novamente.');
+        return;
+      }
+
+      // Auto login after account creation
+      const loginResult = await signIn('credentials', {
+        email: form.email,
+        password: form.senha,
+        redirect: false,
+      });
+
+      if (loginResult?.error) {
+        // Account created but login failed — redirect to login page
+        router.push('/login?cadastro=ok');
+      } else {
+        router.push('/dashboard');
+      }
+    } catch (err: any) {
+      if (err?.name === 'AbortError') {
+        setError('Tempo esgotado. Verifique sua conexão e tente novamente.');
+      } else {
+        setError('Erro inesperado ao criar conta. Tente novamente.');
+      }
+    } finally {
+      setLoading(false);
+    }
   }
 
   const eyeToggle = (show: boolean, toggle: () => void) => (
