@@ -174,10 +174,16 @@ export default function CadastroPage() {
       });
       clearTimeout(timer);
 
-      const data = await res.json();
+      // Safely parse JSON — server may return empty body on some errors
+      let data: any = {};
+      try { data = await res.json(); } catch { data = {}; }
 
       if (!res.ok) {
-        setError(data.error || 'Erro ao criar conta. Tente novamente.');
+        if (res.status === 409) {
+          setError(data.error || 'Este email já está cadastrado. Faça login ou use outro email.');
+        } else {
+          setError(data.error || `Erro ao criar conta (${res.status}). Tente novamente.`);
+        }
         return;
       }
 
