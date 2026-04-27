@@ -13,84 +13,96 @@ function LeftPanel() {
   return (
     <div style={{
       flex: '0 0 46%', minHeight: '100vh',
-      background: 'linear-gradient(145deg, #0a1175 0%, #12218a 40%, #1a3099 70%, #0d1a80 100%)',
+      background: 'linear-gradient(160deg, #F4F6FF 0%, #EBF0FF 50%, #F0F5FF 100%)',
       position: 'relative', overflow: 'hidden',
-      display: 'flex', flexDirection: 'column', padding: '48px 44px',
+      display: 'flex', flexDirection: 'column', padding: '52px 48px',
+      borderRight: '1px solid #E4E9FF',
     }}>
-      {/* Background decorative blobs */}
-      <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '320px', height: '320px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '60px', left: '-60px', width: '260px', height: '260px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(100,140,255,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', top: '45%', right: '-40px', width: '180px', height: '180px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.1) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      {/* Soft blobs — very light */}
+      <div style={{ position: 'absolute', top: '-100px', right: '-100px', width: '380px', height: '380px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '-80px', left: '-80px', width: '320px', height: '320px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(100,120,255,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', top: '55%', right: '10%', width: '200px', height: '200px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.05) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
-      {/* Floating dots */}
-      {[[18,14],[88,22],[22,75],[92,68],[50,90],[75,12]].map(([x,y],i) => (
-        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: i%2===0 ? '8px' : '5px', height: i%2===0 ? '8px' : '5px', borderRadius: '50%', backgroundColor: i%3===0 ? 'rgba(255,102,0,0.7)' : 'rgba(255,255,255,0.25)', pointerEvents: 'none' }} />
+      {/* Subtle decorative dots */}
+      {[[12,8],[85,15],[8,70],[90,60],[55,88]].map(([x,y],i) => (
+        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: i%2===0 ? '6px' : '4px', height: i%2===0 ? '6px' : '4px', borderRadius: '50%', backgroundColor: i%3===0 ? 'rgba(255,102,0,0.25)' : 'rgba(100,120,255,0.15)', pointerEvents: 'none' }} />
       ))}
 
-      {/* Logo */}
-      <div style={{ marginBottom: '52px', position: 'relative', zIndex: 1 }}>
-        <Image src="/logo.png" alt="Licitah" width={160} height={48} style={{ objectFit: 'contain', height: '44px', width: 'auto' }} priority />
+      {/* Logo completa: ícone + wordmark */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '56px', position: 'relative', zIndex: 1 }}>
+        <Image
+          src="/logo.png"
+          alt="Licitah"
+          width={48}
+          height={48}
+          style={{ objectFit: 'contain', width: '48px', height: '48px', borderRadius: '12px' }}
+          priority
+        />
+        <div>
+          <div style={{ fontSize: '22px', fontWeight: 800, color: '#0B1654', letterSpacing: '-0.5px', lineHeight: 1 }}>Licitah</div>
+          <div style={{ fontSize: '11px', color: '#8B9ABF', fontWeight: 500, marginTop: '2px' }}>Plataforma de Licitações</div>
+        </div>
       </div>
 
       {/* Headline */}
-      <div style={{ position: 'relative', zIndex: 1, marginBottom: '40px' }}>
-        <h1 style={{ fontSize: '32px', fontWeight: 800, color: '#fff', lineHeight: 1.2, marginBottom: '14px', letterSpacing: '-0.5px' }}>
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: '44px' }}>
+        <h1 style={{ fontSize: '34px', fontWeight: 800, color: '#0B1654', lineHeight: 1.18, marginBottom: '16px', letterSpacing: '-0.8px' }}>
           A plataforma mais<br />
           <span style={{ color: '#FF6600' }}>completa</span> para<br />
           licitações públicas.
         </h1>
-        <p style={{ fontSize: '15px', color: 'rgba(255,255,255,0.65)', lineHeight: 1.6, maxWidth: '320px' }}>
+        <p style={{ fontSize: '15px', color: '#6B7BA4', lineHeight: 1.65, maxWidth: '310px' }}>
           Monitore, gerencie e ganhe oportunidades com a inteligência do PNCP na palma da mão.
         </p>
       </div>
 
-      {/* Feature pills */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', position: 'relative', zIndex: 1, marginBottom: '44px' }}>
+      {/* Feature list — clean cards */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1, marginBottom: '44px' }}>
         {[
           { icon: FileSearch, label: 'Busca inteligente no PNCP', desc: 'Pregão, Dispensa e mais modalidades' },
           { icon: Bell, label: 'Alertas de oportunidades', desc: 'Notificações por palavra-chave e região' },
           { icon: TrendingUp, label: 'Gestão completa', desc: 'Tarefas, anotações, arquivos e histórico' },
         ].map(({ icon: Icon, label, desc }, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '14px', backgroundColor: 'rgba(255,255,255,0.07)', backdropFilter: 'blur(8px)', border: '1px solid rgba(255,255,255,0.12)', borderRadius: '12px', padding: '13px 16px' }}>
-            <div style={{ width: '38px', height: '38px', borderRadius: '10px', backgroundColor: 'rgba(255,102,0,0.2)', border: '1px solid rgba(255,102,0,0.35)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-              <Icon size={18} color="#FF8833" />
+          <div key={i} style={{
+            display: 'flex', alignItems: 'center', gap: '14px',
+            backgroundColor: 'rgba(255,255,255,0.75)',
+            backdropFilter: 'blur(12px)',
+            border: '1px solid rgba(200,210,255,0.6)',
+            borderRadius: '14px', padding: '14px 16px',
+            boxShadow: '0 2px 12px rgba(100,120,200,0.06)',
+          }}>
+            <div style={{
+              width: '40px', height: '40px', borderRadius: '11px', flexShrink: 0,
+              background: 'linear-gradient(135deg, rgba(255,102,0,0.12) 0%, rgba(255,102,0,0.06) 100%)',
+              border: '1px solid rgba(255,102,0,0.18)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Icon size={18} color="#FF6600" />
             </div>
             <div>
-              <div style={{ fontSize: '13px', fontWeight: 700, color: '#fff', marginBottom: '2px' }}>{label}</div>
-              <div style={{ fontSize: '11.5px', color: 'rgba(255,255,255,0.5)' }}>{desc}</div>
+              <div style={{ fontSize: '13px', fontWeight: 700, color: '#0B1654', marginBottom: '2px' }}>{label}</div>
+              <div style={{ fontSize: '11.5px', color: '#8B9ABF' }}>{desc}</div>
             </div>
           </div>
         ))}
       </div>
 
-      {/* Stats */}
+      {/* Stats — minimal */}
       <div style={{ display: 'flex', gap: '10px', position: 'relative', zIndex: 1 }}>
         {[
           { num: '2.000+', label: 'licitações/dia' },
           { num: 'R$ 50Bi', label: 'monitorados' },
-          { num: '99.9%', label: 'disponibilidade' },
+          { num: '99.9%', label: 'uptime' },
         ].map(({ num, label }, i) => (
-          <div key={i} style={{ flex: 1, textAlign: 'center', backgroundColor: 'rgba(255,255,255,0.06)', border: '1px solid rgba(255,255,255,0.1)', borderRadius: '10px', padding: '12px 8px' }}>
-            <div style={{ fontSize: '17px', fontWeight: 800, color: '#FF6600', marginBottom: '2px' }}>{num}</div>
-            <div style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.5)', fontWeight: 500 }}>{label}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Bottom floating card */}
-      <div style={{ position: 'absolute', bottom: '44px', right: '32px', width: '220px', backgroundColor: 'rgba(255,255,255,0.09)', backdropFilter: 'blur(12px)', border: '1px solid rgba(255,255,255,0.15)', borderRadius: '14px', padding: '16px', zIndex: 1 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-          <div style={{ width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4ADE80' }} />
-          <span style={{ fontSize: '11px', fontWeight: 700, color: 'rgba(255,255,255,0.8)' }}>Oportunidades hoje</span>
-        </div>
-        {[
-          { t: 'Pregão Eletrônico', v: 'R$ 240.000', c: '#4ADE80' },
-          { t: 'Dispensa de Licitação', v: 'R$ 85.500', c: '#FB923C' },
-          { t: 'Concorrência Pública', v: 'R$ 1.200.000', c: '#818CF8' },
-        ].map(({ t, v, c }, i) => (
-          <div key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: i < 2 ? '8px' : 0, paddingBottom: i < 2 ? '8px' : 0, borderBottom: i < 2 ? '1px solid rgba(255,255,255,0.08)' : 'none' }}>
-            <span style={{ fontSize: '10.5px', color: 'rgba(255,255,255,0.6)', maxWidth: '100px' }}>{t}</span>
-            <span style={{ fontSize: '10.5px', fontWeight: 700, color: c }}>{v}</span>
+          <div key={i} style={{
+            flex: 1, textAlign: 'center',
+            backgroundColor: 'rgba(255,255,255,0.8)',
+            border: '1px solid rgba(200,210,255,0.5)',
+            borderRadius: '12px', padding: '14px 8px',
+            boxShadow: '0 2px 8px rgba(100,120,200,0.05)',
+          }}>
+            <div style={{ fontSize: '18px', fontWeight: 800, color: '#FF6600', marginBottom: '3px' }}>{num}</div>
+            <div style={{ fontSize: '10.5px', color: '#8B9ABF', fontWeight: 500 }}>{label}</div>
           </div>
         ))}
       </div>

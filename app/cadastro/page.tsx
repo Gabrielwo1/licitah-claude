@@ -60,68 +60,73 @@ function LeftPanel() {
   return (
     <div style={{
       flex: '0 0 40%', minHeight: '100vh',
-      background: 'linear-gradient(145deg, #0a1175 0%, #12218a 40%, #1a3099 70%, #0d1a80 100%)',
+      background: 'linear-gradient(160deg, #F4F6FF 0%, #EBF0FF 50%, #F0F5FF 100%)',
       position: 'relative', overflow: 'hidden',
       display: 'flex', flexDirection: 'column', padding: '48px 40px',
+      borderRight: '1px solid #E4E9FF',
     }}>
-      {/* Blobs */}
-      <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '280px', height: '280px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.2) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'absolute', bottom: '80px', left: '-60px', width: '240px', height: '240px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(100,140,255,0.18) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      {/* Soft blobs */}
+      <div style={{ position: 'absolute', top: '-80px', right: '-80px', width: '280px', height: '280px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(255,102,0,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
+      <div style={{ position: 'absolute', bottom: '80px', left: '-60px', width: '240px', height: '240px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(100,120,255,0.07) 0%, transparent 65%)', pointerEvents: 'none' }} />
 
       {/* Dots */}
       {[[15,10],[85,18],[18,80],[90,65],[55,92]].map(([x,y],i) => (
-        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: i%2===0 ? '7px' : '5px', height: i%2===0 ? '7px' : '5px', borderRadius: '50%', backgroundColor: i%3===0 ? 'rgba(255,102,0,0.7)' : 'rgba(255,255,255,0.2)', pointerEvents: 'none' }} />
+        <div key={i} style={{ position: 'absolute', left: `${x}%`, top: `${y}%`, width: i%2===0 ? '6px' : '4px', height: i%2===0 ? '6px' : '4px', borderRadius: '50%', backgroundColor: i%3===0 ? 'rgba(255,102,0,0.22)' : 'rgba(100,120,255,0.15)', pointerEvents: 'none' }} />
       ))}
 
-      {/* Logo */}
-      <div style={{ marginBottom: '48px', position: 'relative', zIndex: 1 }}>
-        <Image src="/logo.png" alt="Licitah" width={150} height={44} style={{ objectFit: 'contain', height: '40px', width: 'auto' }} priority />
+      {/* Logo completa */}
+      <div style={{ display: 'flex', alignItems: 'center', gap: '11px', marginBottom: '44px', position: 'relative', zIndex: 1 }}>
+        <Image src="/logo.png" alt="Licitah" width={44} height={44} style={{ objectFit: 'contain', width: '44px', height: '44px', borderRadius: '11px' }} priority />
+        <div>
+          <div style={{ fontSize: '20px', fontWeight: 800, color: '#0B1654', letterSpacing: '-0.4px', lineHeight: 1 }}>Licitah</div>
+          <div style={{ fontSize: '10.5px', color: '#8B9ABF', fontWeight: 500, marginTop: '2px' }}>Plataforma de Licitações</div>
+        </div>
       </div>
 
       {/* Headline */}
-      <div style={{ position: 'relative', zIndex: 1, marginBottom: '36px' }}>
-        <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#fff', lineHeight: 1.25, marginBottom: '12px', letterSpacing: '-0.3px' }}>
+      <div style={{ position: 'relative', zIndex: 1, marginBottom: '32px' }}>
+        <h1 style={{ fontSize: '28px', fontWeight: 800, color: '#0B1654', lineHeight: 1.2, marginBottom: '12px', letterSpacing: '-0.5px' }}>
           Comece gratuitamente.<br />
           <span style={{ color: '#FF6600' }}>Encontre</span> as melhores<br />
           oportunidades.
         </h1>
-        <p style={{ fontSize: '14px', color: 'rgba(255,255,255,0.6)', lineHeight: 1.6 }}>
+        <p style={{ fontSize: '14px', color: '#6B7BA4', lineHeight: 1.6 }}>
           Cadastre-se e tenha acesso imediato ao maior banco de licitações do Brasil.
         </p>
       </div>
 
       {/* Plan highlights */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1, marginBottom: '36px' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', position: 'relative', zIndex: 1, marginBottom: '32px' }}>
         {[
-          { icon: Zap, color: '#FB923C', label: 'Acesso imediato', desc: 'Sem período de carência' },
-          { icon: Star, color: '#FBBF24', label: 'Plano gratuito', desc: 'Use sem cartão de crédito' },
-          { icon: Shield, color: '#4ADE80', label: '100% seguro', desc: 'Dados protegidos (LGPD)' },
-        ].map(({ icon: Icon, color, label, desc }, i) => (
-          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'rgba(255,255,255,0.07)', border: '1px solid rgba(255,255,255,0.11)', borderRadius: '11px', padding: '11px 14px' }}>
-            <div style={{ width: '34px', height: '34px', borderRadius: '9px', backgroundColor: `${color}22`, border: `1px solid ${color}44`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          { icon: Zap, color: '#FF6600', bg: 'rgba(255,102,0,0.1)', border: 'rgba(255,102,0,0.2)', label: 'Acesso imediato', desc: 'Sem período de carência' },
+          { icon: Star, color: '#F59E0B', bg: 'rgba(245,158,11,0.1)', border: 'rgba(245,158,11,0.2)', label: 'Plano gratuito', desc: 'Use sem cartão de crédito' },
+          { icon: Shield, color: '#10B981', bg: 'rgba(16,185,129,0.1)', border: 'rgba(16,185,129,0.2)', label: '100% seguro', desc: 'Dados protegidos (LGPD)' },
+        ].map(({ icon: Icon, color, bg, border, label, desc }, i) => (
+          <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '12px', backgroundColor: 'rgba(255,255,255,0.75)', backdropFilter: 'blur(12px)', border: '1px solid rgba(200,210,255,0.5)', borderRadius: '12px', padding: '12px 14px', boxShadow: '0 2px 10px rgba(100,120,200,0.05)' }}>
+            <div style={{ width: '34px', height: '34px', borderRadius: '9px', backgroundColor: bg, border: `1px solid ${border}`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
               <Icon size={16} color={color} />
             </div>
             <div>
-              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#fff', marginBottom: '1px' }}>{label}</div>
-              <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>{desc}</div>
+              <div style={{ fontSize: '12.5px', fontWeight: 700, color: '#0B1654', marginBottom: '1px' }}>{label}</div>
+              <div style={{ fontSize: '11px', color: '#8B9ABF' }}>{desc}</div>
             </div>
           </div>
         ))}
       </div>
 
       {/* Testimonial card */}
-      <div style={{ position: 'relative', zIndex: 1, backgroundColor: 'rgba(255,255,255,0.08)', backdropFilter: 'blur(10px)', border: '1px solid rgba(255,255,255,0.14)', borderRadius: '14px', padding: '18px' }}>
-        <div style={{ display: 'flex', gap: '4px', marginBottom: '10px' }}>
-          {[...Array(5)].map((_, i) => <Star key={i} size={13} color="#FBBF24" fill="#FBBF24" />)}
+      <div style={{ position: 'relative', zIndex: 1, backgroundColor: 'rgba(255,255,255,0.8)', backdropFilter: 'blur(12px)', border: '1px solid rgba(200,210,255,0.5)', borderRadius: '14px', padding: '18px', boxShadow: '0 4px 16px rgba(100,120,200,0.08)' }}>
+        <div style={{ display: 'flex', gap: '3px', marginBottom: '10px' }}>
+          {[...Array(5)].map((_, i) => <Star key={i} size={12} color="#F59E0B" fill="#F59E0B" />)}
         </div>
-        <p style={{ fontSize: '12.5px', color: 'rgba(255,255,255,0.75)', lineHeight: 1.6, marginBottom: '12px', fontStyle: 'italic' }}>
-          "Em 2 semanas usando a Licitah, já identificamos 3 contratos relevantes para nossa empresa. A busca inteligente economizou horas de pesquisa manual."
+        <p style={{ fontSize: '12.5px', color: '#4B5880', lineHeight: 1.65, marginBottom: '12px', fontStyle: 'italic' }}>
+          "Em 2 semanas usando a Licitah, identificamos 3 contratos relevantes. A busca inteligente economizou horas de pesquisa manual."
         </p>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF6600, #FF8833)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '13px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>M</div>
+          <div style={{ width: '30px', height: '30px', borderRadius: '50%', background: 'linear-gradient(135deg, #FF6600, #FF8833)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '12px', fontWeight: 700, color: '#fff', flexShrink: 0 }}>M</div>
           <div>
-            <div style={{ fontSize: '12px', fontWeight: 700, color: '#fff' }}>Marcos S.</div>
-            <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.45)' }}>Diretor Comercial · TechSupply Ltda</div>
+            <div style={{ fontSize: '12px', fontWeight: 700, color: '#0B1654' }}>Marcos S.</div>
+            <div style={{ fontSize: '10.5px', color: '#8B9ABF' }}>Diretor Comercial · TechSupply Ltda</div>
           </div>
         </div>
       </div>
