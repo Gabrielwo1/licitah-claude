@@ -40,6 +40,15 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
   const funcao = (session?.user as any)?.funcao;
   const isAdmin = funcao === 0 || funcao === 1;
   const empresaNome = (session?.user as any)?.empresaNome;
+  const empresaCnpj = (session?.user as any)?.empresaCnpj;
+
+  // Format CNPJ to 00.000.000/0000-00 if it's coming as raw digits
+  function formatCnpj(raw?: string | null): string {
+    if (!raw) return '';
+    const digits = raw.replace(/\D/g, '');
+    if (digits.length !== 14) return raw; // already formatted or unexpected
+    return digits.replace(/^(\d{2})(\d{3})(\d{3})(\d{4})(\d{2})$/, '$1.$2.$3/$4-$5');
+  }
 
   const allItems = isAdmin ? [...navItems, ...adminItems] : navItems;
 
@@ -85,13 +94,57 @@ export function Sidebar({ mobileOpen, onClose }: SidebarProps) {
           </button>
         </div>
 
-        {/* Company name below logo */}
+        {/* Company card below logo */}
         {empresaNome && (
-          <div
-            className="px-5 py-2 text-xs font-semibold truncate"
-            style={{ color: '#7B7B7B', borderBottom: '1px solid #F0F0F0' }}
-          >
-            {empresaNome}
+          <div className="px-4 pt-4 pb-3">
+            <div
+              className="rounded-xl px-4 py-3"
+              style={{
+                background: 'linear-gradient(135deg, #1a2540 0%, #0f1830 100%)',
+                border: '1px solid #2a3552',
+                boxShadow: '0 2px 8px rgba(15,24,48,0.15)',
+              }}
+            >
+              <div
+                style={{
+                  fontSize: '10.5px',
+                  fontWeight: 600,
+                  color: '#8B9ABF',
+                  textTransform: 'none',
+                  letterSpacing: '0.2px',
+                  marginBottom: '4px',
+                }}
+              >
+                Sua Empresa
+              </div>
+              <div
+                className="truncate"
+                style={{
+                  fontSize: '13px',
+                  fontWeight: 800,
+                  color: '#fff',
+                  letterSpacing: '-0.2px',
+                  lineHeight: 1.25,
+                  marginBottom: empresaCnpj ? '4px' : 0,
+                }}
+                title={empresaNome}
+              >
+                {empresaNome}
+              </div>
+              {empresaCnpj && (
+                <div
+                  className="truncate"
+                  style={{
+                    fontSize: '11px',
+                    color: '#A8B5D6',
+                    fontWeight: 500,
+                  }}
+                  title={formatCnpj(empresaCnpj)}
+                >
+                  CNPJ: {formatCnpj(empresaCnpj)}
+                </div>
+              )}
+            </div>
           </div>
         )}
 

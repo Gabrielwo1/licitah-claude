@@ -43,6 +43,7 @@ export const authOptions: NextAuthOptions = {
           hash: user.usuario_hash,
           empresaId: user.empresa_id ? String(user.empresa_id) : null,
           empresaNome: user.empresa_nome || null,
+          empresaCnpj: user.empresa_cnpj || null,
         };
       },
     }),
@@ -58,6 +59,7 @@ export const authOptions: NextAuthOptions = {
         token.hash = (user as any).hash;
         token.empresaId = (user as any).empresaId;
         token.empresaNome = (user as any).empresaNome;
+        token.empresaCnpj = (user as any).empresaCnpj;
       }
       return token;
     },
@@ -68,6 +70,7 @@ export const authOptions: NextAuthOptions = {
         (session.user as any).hash = token.hash;
         (session.user as any).empresaId = token.empresaId;
         (session.user as any).empresaNome = token.empresaNome;
+        (session.user as any).empresaCnpj = token.empresaCnpj;
       }
       return session;
     },
