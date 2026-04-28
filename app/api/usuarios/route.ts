@@ -7,7 +7,8 @@ function md5(str: string): string {
 }
 
 function randomHash(): string {
-  return createHash('md5').update(Math.random().toString()).digest('hex').slice(0, 16);
+  // usuario_hash is varchar(15) — must fit in 15 chars
+  return createHash('md5').update(Math.random().toString() + Date.now()).digest('hex').slice(0, 15);
 }
 
 /** Generate a unique username from the user's name, e.g. "João Silva" → "joaosilva" + suffix */
@@ -49,8 +50,11 @@ export async function POST(req: NextRequest) {
 
     const hashedPassword = md5(senha);
     const userHash     = randomHash();
-    const usuarioUser  = generateUsername(nome, email);
-    const telefoneVal  = (telefone && telefone.trim()) ? telefone.trim() : '';
+    const usuarioUser  = generateUsername(nome, email).slice(0, 20);
+    // usuario_telefone is varchar(15)
+    const telefoneVal  = (telefone && telefone.trim()) ? telefone.trim().slice(0, 15) : '';
+    // usuario_cpf is varchar(14)
+    const cpfVal       = cpf?.trim() ? cpf.trim().slice(0, 14) : null;
 
     // Insert user — usuario_id now uses sequence (nextval)
     const userResult = await sql`
@@ -75,7 +79,7 @@ export async function POST(req: NextRequest) {
         1,
         ${userHash},
         ${telefoneVal},
-        ${cpf?.trim() || null},
+        ${cpfVal},
         ${usuarioUser}
       )
       RETURNING usuario_id
@@ -87,9 +91,11 @@ export async function POST(req: NextRequest) {
     if (empresaNome && empresaNome.trim()) {
       try {
         const empresaHash = randomHash();
+        const empresaNomeVal = empresaNome.trim().slice(0, 200);
+        const empresaCnpjVal = (empresaCnpj?.trim() || '').slice(0, 30);
         const empresaResult = await sql`
           INSERT INTO empresas (empresa_nome, empresa_cnpj, empresa_hash, empresa_autor)
-          VALUES (${empresaNome.trim()}, ${empresaCnpj?.trim() || ''}, ${empresaHash}, ${userId})
+          VALUES (${empresaNomeVal}, ${empresaCnpjVal}, ${empresaHash}, ${userId})
           RETURNING empresa_id
         `;
         await sql`
