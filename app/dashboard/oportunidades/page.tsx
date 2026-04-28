@@ -1,7 +1,7 @@
 'use client';
 
-import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, X, Plus, Loader2, MapPin } from 'lucide-react';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { ChevronLeft, ChevronRight, X, Plus, Loader2, MapPin, List, Calendar as CalendarIcon, Search, RefreshCw, Filter } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 
 const UFS = [
@@ -32,6 +32,24 @@ function licitacaoDate(l: any): Date {
   return new Date(l.dataPublicacaoPncp || l.dataAberturaProposta || 0);
 }
 
+function relativeDateLabel(d: Date, today: Date): string {
+  const dKey = dayKey(d);
+  const tKey = dayKey(today);
+  if (dKey === tKey) return 'Hoje';
+
+  const yesterday = new Date(today); yesterday.setDate(today.getDate() - 1);
+  if (dKey === dayKey(yesterday)) return 'Ontem';
+
+  const diffMs = today.getTime() - d.getTime();
+  const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+  if (diffDays >= 0 && diffDays < 7) return `Há ${diffDays} dia${diffDays === 1 ? '' : 's'}`;
+  if (diffDays < 0) {
+    // Future date (shouldn't normally happen for publicacao but defensive)
+    return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+  }
+  return d.toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' });
+}
+
 // ── Main Page ─────────────────────────────────────────────────────────────────
 
 export default function OportunidadesPage() {
@@ -39,6 +57,15 @@ export default function OportunidadesPage() {
   const [calMonth, setCalMonth] = useState(new Date(today.getFullYear(), today.getMonth(), 1));
   const [viewMode, setViewMode] = useState<'mensal' | 'semanal'>('mensal');
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
+
+  // NEW: primary display mode — Lista (default, easier UX) or Calendário
+  const [displayMode, setDisplayMode] = useState<'lista' | 'calendario'>('lista');
+
+  // NEW: list filters
+  const [search, setSearch] = useState('');
+  const [periodFilter, setPeriodFilter] = useState<'todos' | 'hoje' | 'semana' | 'mes'>('todos');
+  const [ufFilter, setUfFilter] = useState<string>('todos');
+  const [visibleCount, setVisibleCount] = useState(20);
 
   const [licitacoes, setLicitacoes] = useState<any[]>([]);
   const [keywords, setKeywords] = useState<string[]>([]);
@@ -101,6 +128,68 @@ export default function OportunidadesPage() {
   const monthCount = licitacoes.filter(l => { const d = licitacaoDate(l); return d >= monthStart && d <= monthEnd; }).length;
 
   const selectedLics = selectedDay ? (byDay[selectedDay] || []) : [];
+
+  // ── List view: filter + sort + group by relative date ──────────────────────
+  const availableUfs = useMemo(() => {
+    const ufs = new Set<string>();
+    licitacoes.forEach(l => { const uf = l.unidadeOrgao?.ufSigla; if (uf) ufs.add(uf); });
+    return Array.from(ufs).sort();
+  }, [licitacoes]);
+
+  const filteredList = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    let out = licitacoes;
+
+    if (q) {
+      out = out.filter(l => {
+        const obj = (l.objetoCompra || '').toLowerCase();
+        const org = (l.orgaoEntidade?.razaoSocial || '').toLowerCase();
+        const cid = (l.unidadeOrgao?.municipioNome || '').toLowerCase();
+        return obj.includes(q) || org.includes(q) || cid.includes(q);
+      });
+    }
+
+    if (ufFilter !== 'todos') {
+      out = out.filter(l => l.unidadeOrgao?.ufSigla === ufFilter);
+    }
+
+    if (periodFilter !== 'todos') {
+      out = out.filter(l => {
+        const d = licitacaoDate(l);
+        if (periodFilter === 'hoje')   return isSameDay(d, today);
+        if (periodFilter === 'semana') return d >= weekStart && d <= weekEnd;
+        if (periodFilter === 'mes')    return d >= monthStart && d <= monthEnd;
+        return true;
+      });
+    }
+
+    // Already sorted desc by API, but ensure
+    return out.slice().sort((a, b) => licitacaoDate(b).getTime() - licitacaoDate(a).getTime());
+  }, [licitacoes, search, ufFilter, periodFilter, today, weekStart, weekEnd, monthStart, monthEnd]);
+
+  // Group filtered list by relative date label
+  const groupedList = useMemo(() => {
+    const groups: { label: string; items: any[] }[] = [];
+    const visible = filteredList.slice(0, visibleCount);
+    let currentLabel = '';
+    let currentBucket: any[] = [];
+    visible.forEach(l => {
+      const lbl = relativeDateLabel(licitacaoDate(l), today);
+      if (lbl !== currentLabel) {
+        if (currentBucket.length) groups.push({ label: currentLabel, items: currentBucket });
+        currentLabel = lbl;
+        currentBucket = [l];
+      } else {
+        currentBucket.push(l);
+      }
+    });
+    if (currentBucket.length) groups.push({ label: currentLabel, items: currentBucket });
+    return groups;
+  }, [filteredList, visibleCount, today]);
+
+  // Reset pagination when filters change
+  useEffect(() => { setVisibleCount(20); }, [search, ufFilter, periodFilter]);
+
 
   function reload() {
     try { localStorage.removeItem('oportunidades_cache'); } catch {}
@@ -194,77 +283,267 @@ export default function OportunidadesPage() {
         </div>
       )}
 
-      {/* Calendar section */}
-      <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '10px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
-        {/* Calendar controls */}
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F0F0F0' }}>
+      {/* Results section */}
+      <div style={{ backgroundColor: '#fff', border: '1px solid #E8E8E8', borderRadius: '12px', overflow: 'hidden', boxShadow: '0 1px 4px rgba(0,0,0,0.05)' }}>
+        {/* Top bar: title + view toggle */}
+        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F0F0F0', gap: '12px', flexWrap: 'wrap' }}>
           <div>
-            <div style={{ fontSize: '11px', color: '#9B9B9B', fontWeight: 600, marginBottom: '6px' }}>Período</div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              <button
-                onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #E0E0E0', backgroundColor: '#F5F5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <ChevronLeft className="h-4 w-4" style={{ color: '#7B7B7B' }} />
-              </button>
-              <span style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A', minWidth: '140px', textAlign: 'center' }}>
-                {calMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
-              </span>
-              <button
-                onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
-                style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #E0E0E0', backgroundColor: '#F5F5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
-              >
-                <ChevronRight className="h-4 w-4" style={{ color: '#7B7B7B' }} />
-              </button>
-            </div>
+            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#262E3A', margin: 0 }}>
+              {displayMode === 'lista' ? 'Oportunidades encontradas' : 'Calendário de oportunidades'}
+            </h2>
+            <p style={{ fontSize: '12.5px', color: '#7B7B7B', margin: '2px 0 0 0' }}>
+              {displayMode === 'lista'
+                ? `${filteredList.length} resultado${filteredList.length !== 1 ? 's' : ''}${filteredList.length !== licitacoes.length ? ` de ${licitacoes.length}` : ''}`
+                : 'Visualize por dia, semana ou mês'}
+            </p>
           </div>
-          <div style={{ display: 'flex', border: '1px solid #E0E0E0', borderRadius: '8px', overflow: 'hidden' }}>
-            {(['semanal', 'mensal'] as const).map(mode => (
+          <div style={{ display: 'flex', border: '1px solid #E0E0E0', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#F8F8F8', padding: '3px' }}>
+            {([
+              { mode: 'lista', icon: List, label: 'Lista' },
+              { mode: 'calendario', icon: CalendarIcon, label: 'Calendário' },
+            ] as const).map(({ mode, icon: Icon, label }) => (
               <button
                 key={mode}
-                onClick={() => setViewMode(mode)}
+                onClick={() => setDisplayMode(mode)}
                 style={{
-                  padding: '8px 18px', fontSize: '13px', fontWeight: 700, border: 'none', cursor: 'pointer',
-                  backgroundColor: viewMode === mode ? '#262E3A' : '#fff',
-                  color: viewMode === mode ? '#fff' : '#262E3A',
+                  padding: '7px 14px', fontSize: '13px', fontWeight: 700, border: 'none', cursor: 'pointer',
+                  backgroundColor: displayMode === mode ? '#fff' : 'transparent',
+                  color: displayMode === mode ? '#FF6600' : '#7B7B7B',
+                  borderRadius: '7px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                  boxShadow: displayMode === mode ? '0 1px 3px rgba(0,0,0,0.08)' : 'none',
                   transition: 'all 0.15s',
-                  textTransform: 'capitalize',
                 }}
               >
-                {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                <Icon className="h-4 w-4" /> {label}
               </button>
             ))}
           </div>
         </div>
 
-        {/* Calendar grid */}
-        <CalendarGrid
-          month={calMonth}
-          viewMode={viewMode}
-          byDay={byDay}
-          selectedDay={selectedDay}
-          onSelectDay={day => setSelectedDay(selectedDay === day ? null : day)}
-          loading={loading}
-        />
-      </div>
+        {/* ── LISTA VIEW ── */}
+        {displayMode === 'lista' && (
+          <div>
+            {/* Search + filters bar */}
+            <div style={{ padding: '14px 20px', borderBottom: '1px solid #F0F0F0', display: 'flex', flexWrap: 'wrap', gap: '10px', alignItems: 'center' }}>
+              {/* Search */}
+              <div style={{ position: 'relative', flex: '1 1 280px', minWidth: '240px' }}>
+                <Search className="h-4 w-4" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9B9B9B', pointerEvents: 'none' }} />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={e => setSearch(e.target.value)}
+                  placeholder="Buscar por objeto, órgão ou cidade..."
+                  style={{ width: '100%', height: '40px', border: '1px solid #E0E0E0', borderRadius: '10px', padding: '0 38px 0 36px', fontSize: '13.5px', color: '#262E3A', outline: 'none', backgroundColor: '#fff', boxSizing: 'border-box' }}
+                  onFocus={e => (e.currentTarget.style.borderColor = '#FF6600')}
+                  onBlur={e => (e.currentTarget.style.borderColor = '#E0E0E0')}
+                />
+                {search && (
+                  <button onClick={() => setSearch('')}
+                    style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B', padding: '2px', display: 'flex' }}>
+                    <X className="h-4 w-4" />
+                  </button>
+                )}
+              </div>
 
-      {/* Selected day licitações */}
-      {selectedDay && selectedLics.length > 0 && (
-        <div style={{ marginTop: '20px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
-            <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#262E3A' }}>
-              Licitações em {new Date(selectedDay + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-              <span style={{ marginLeft: '8px', fontSize: '13px', color: '#FF6600' }}>({selectedLics.length})</span>
-            </h3>
-            <button onClick={() => setSelectedDay(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B' }}>
-              <X className="h-5 w-5" />
-            </button>
+              {/* Period quick filters */}
+              <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                {([
+                  { v: 'todos',  label: 'Todos' },
+                  { v: 'hoje',   label: 'Hoje' },
+                  { v: 'semana', label: 'Semana' },
+                  { v: 'mes',    label: 'Mês' },
+                ] as const).map(opt => (
+                  <button
+                    key={opt.v}
+                    onClick={() => setPeriodFilter(opt.v)}
+                    style={{
+                      padding: '7px 14px', fontSize: '12.5px', fontWeight: 700,
+                      border: `1px solid ${periodFilter === opt.v ? '#FF6600' : '#E0E0E0'}`,
+                      backgroundColor: periodFilter === opt.v ? '#FFF3E8' : '#fff',
+                      color: periodFilter === opt.v ? '#FF6600' : '#7B7B7B',
+                      borderRadius: '20px', cursor: 'pointer', transition: 'all 0.15s',
+                    }}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+
+              {/* UF filter (only when there's variety) */}
+              {availableUfs.length > 1 && (
+                <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <Filter className="h-3.5 w-3.5" style={{ color: '#9B9B9B' }} />
+                  <select
+                    value={ufFilter}
+                    onChange={e => setUfFilter(e.target.value)}
+                    style={{ height: '36px', border: '1px solid #E0E0E0', borderRadius: '8px', padding: '0 10px', fontSize: '12.5px', color: '#262E3A', backgroundColor: '#fff', cursor: 'pointer', fontWeight: 600 }}
+                  >
+                    <option value="todos">Todos os estados</option>
+                    {availableUfs.map(u => <option key={u} value={u}>{u}</option>)}
+                  </select>
+                </div>
+              )}
+
+              {/* Reload */}
+              <button
+                onClick={reload}
+                disabled={loading}
+                title="Recarregar do PNCP"
+                style={{ height: '36px', width: '36px', borderRadius: '8px', border: '1px solid #E0E0E0', backgroundColor: '#fff', cursor: loading ? 'wait' : 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#7B7B7B' }}
+              >
+                <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
+              </button>
+            </div>
+
+            {/* List body */}
+            <div style={{ padding: '20px', backgroundColor: '#FAFAFA', minHeight: '300px' }}>
+              {loading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '60px 20px', gap: '12px', color: '#7B7B7B' }}>
+                  <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#FF6600' }} />
+                  <span style={{ fontSize: '14px' }}>Buscando oportunidades no PNCP...</span>
+                </div>
+              ) : !hasConfig ? (
+                <EmptyState
+                  emoji="🎯"
+                  title="Configure suas palavras-chave"
+                  desc="Para começar a receber oportunidades, defina os termos relacionados ao seu negócio."
+                  cta={{ label: 'Definir Oportunidades', onClick: () => setModalOpen(true) }}
+                />
+              ) : filteredList.length === 0 ? (
+                licitacoes.length === 0 ? (
+                  <EmptyState
+                    emoji="🔍"
+                    title="Nenhuma oportunidade encontrada"
+                    desc="Não encontramos licitações com seus termos atuais nos últimos 3 meses. Tente ajustar suas palavras-chave ou ampliar a região."
+                    cta={{ label: 'Ajustar configuração', onClick: () => setModalOpen(true) }}
+                  />
+                ) : (
+                  <EmptyState
+                    emoji="🧐"
+                    title="Nenhum resultado para os filtros aplicados"
+                    desc="Tente limpar a busca ou alterar os filtros de período/estado."
+                    cta={{ label: 'Limpar filtros', onClick: () => { setSearch(''); setPeriodFilter('todos'); setUfFilter('todos'); } }}
+                  />
+                )
+              ) : (
+                <>
+                  {groupedList.map(group => (
+                    <div key={group.label} style={{ marginBottom: '20px' }}>
+                      <div style={{
+                        display: 'flex', alignItems: 'center', gap: '10px', marginBottom: '10px',
+                        position: 'sticky', top: 0, backgroundColor: '#FAFAFA', padding: '4px 0', zIndex: 2,
+                      }}>
+                        <span style={{ fontSize: '12px', fontWeight: 800, color: '#262E3A', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
+                          {group.label}
+                        </span>
+                        <span style={{ fontSize: '11px', fontWeight: 700, color: '#FF6600', backgroundColor: '#FFF3E8', padding: '2px 8px', borderRadius: '10px' }}>
+                          {group.items.length}
+                        </span>
+                        <div style={{ flex: 1, height: '1px', backgroundColor: '#E8E8E8' }} />
+                      </div>
+                      <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                        {group.items.map(l => <LicitacaoMiniCard key={l.numeroControlePNCP} l={l} />)}
+                      </div>
+                    </div>
+                  ))}
+
+                  {/* Load more */}
+                  {visibleCount < filteredList.length && (
+                    <div style={{ display: 'flex', justifyContent: 'center', marginTop: '8px' }}>
+                      <button
+                        onClick={() => setVisibleCount(c => c + 20)}
+                        style={{
+                          backgroundColor: '#fff', border: '1px solid #E0E0E0', color: '#262E3A',
+                          padding: '10px 24px', borderRadius: '10px', fontSize: '13px', fontWeight: 700, cursor: 'pointer',
+                          transition: 'all 0.15s',
+                        }}
+                        onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FF6600'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#FF6600'; }}
+                        onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; (e.currentTarget as HTMLElement).style.color = '#262E3A'; (e.currentTarget as HTMLElement).style.borderColor = '#E0E0E0'; }}
+                      >
+                        Carregar mais ({filteredList.length - visibleCount} restantes)
+                      </button>
+                    </div>
+                  )}
+                </>
+              )}
+            </div>
           </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            {selectedLics.map(l => <LicitacaoMiniCard key={l.numeroControlePNCP} l={l} />)}
+        )}
+
+        {/* ── CALENDÁRIO VIEW ── */}
+        {displayMode === 'calendario' && (
+          <div>
+            {/* Calendar controls */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F0F0F0' }}>
+              <div>
+                <div style={{ fontSize: '11px', color: '#9B9B9B', fontWeight: 600, marginBottom: '6px' }}>Período</div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <button
+                    onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() - 1, 1))}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #E0E0E0', backgroundColor: '#F5F5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <ChevronLeft className="h-4 w-4" style={{ color: '#7B7B7B' }} />
+                  </button>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A', minWidth: '140px', textAlign: 'center' }}>
+                    {calMonth.toLocaleDateString('pt-BR', { month: 'long', year: 'numeric' })}
+                  </span>
+                  <button
+                    onClick={() => setCalMonth(m => new Date(m.getFullYear(), m.getMonth() + 1, 1))}
+                    style={{ width: '28px', height: '28px', borderRadius: '50%', border: '1px solid #E0E0E0', backgroundColor: '#F5F5F5', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center' }}
+                  >
+                    <ChevronRight className="h-4 w-4" style={{ color: '#7B7B7B' }} />
+                  </button>
+                </div>
+              </div>
+              <div style={{ display: 'flex', border: '1px solid #E0E0E0', borderRadius: '8px', overflow: 'hidden' }}>
+                {(['semanal', 'mensal'] as const).map(mode => (
+                  <button
+                    key={mode}
+                    onClick={() => setViewMode(mode)}
+                    style={{
+                      padding: '8px 18px', fontSize: '13px', fontWeight: 700, border: 'none', cursor: 'pointer',
+                      backgroundColor: viewMode === mode ? '#262E3A' : '#fff',
+                      color: viewMode === mode ? '#fff' : '#262E3A',
+                      transition: 'all 0.15s',
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {mode.charAt(0).toUpperCase() + mode.slice(1)}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <CalendarGrid
+              month={calMonth}
+              viewMode={viewMode}
+              byDay={byDay}
+              selectedDay={selectedDay}
+              onSelectDay={day => setSelectedDay(selectedDay === day ? null : day)}
+              loading={loading}
+            />
+
+            {/* Selected day licitações (inside calendar mode) */}
+            {selectedDay && selectedLics.length > 0 && (
+              <div style={{ padding: '20px', borderTop: '1px solid #F0F0F0', backgroundColor: '#FAFAFA' }}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '12px' }}>
+                  <h3 style={{ fontSize: '15px', fontWeight: 800, color: '#262E3A', margin: 0 }}>
+                    Licitações em {new Date(selectedDay + 'T12:00:00').toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                    <span style={{ marginLeft: '8px', fontSize: '13px', color: '#FF6600' }}>({selectedLics.length})</span>
+                  </h3>
+                  <button onClick={() => setSelectedDay(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#9B9B9B' }}>
+                    <X className="h-5 w-5" />
+                  </button>
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                  {selectedLics.map(l => <LicitacaoMiniCard key={l.numeroControlePNCP} l={l} />)}
+                </div>
+              </div>
+            )}
           </div>
-        </div>
-      )}
+        )}
+      </div>
 
       {/* Modal */}
       {modalOpen && (
@@ -395,6 +674,40 @@ function CalendarGrid({ month, viewMode, byDay, selectedDay, onSelectDay, loadin
           );
         })}
       </div>
+    </div>
+  );
+}
+
+// ── Empty State ───────────────────────────────────────────────────────────────
+
+function EmptyState({ emoji, title, desc, cta }: {
+  emoji: string;
+  title: string;
+  desc: string;
+  cta?: { label: string; onClick: () => void };
+}) {
+  return (
+    <div style={{
+      display: 'flex', flexDirection: 'column', alignItems: 'center',
+      justifyContent: 'center', padding: '60px 20px', textAlign: 'center',
+    }}>
+      <div style={{ fontSize: '40px', marginBottom: '12px' }}>{emoji}</div>
+      <h3 style={{ fontSize: '16px', fontWeight: 800, color: '#262E3A', margin: '0 0 6px 0' }}>{title}</h3>
+      <p style={{ fontSize: '13.5px', color: '#7B7B7B', margin: '0 0 20px 0', maxWidth: '400px', lineHeight: 1.55 }}>{desc}</p>
+      {cta && (
+        <button
+          onClick={cta.onClick}
+          style={{
+            backgroundColor: '#FF6600', color: '#fff', border: 'none',
+            borderRadius: '10px', padding: '11px 22px', fontSize: '13px',
+            fontWeight: 700, cursor: 'pointer', transition: 'background 0.15s',
+          }}
+          onMouseEnter={e => (e.currentTarget.style.backgroundColor = '#e05a00')}
+          onMouseLeave={e => (e.currentTarget.style.backgroundColor = '#FF6600')}
+        >
+          {cta.label}
+        </button>
+      )}
     </div>
   );
 }
