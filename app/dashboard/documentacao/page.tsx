@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import Link from 'next/link';
 import {
   FolderOpen,
@@ -13,7 +13,34 @@ import {
   ExternalLink,
   ChevronLeft,
   ShieldCheck,
+  FileText,
+  Upload,
 } from 'lucide-react';
+
+const MAX_FILE_BYTES = 10 * 1024 * 1024; // 10 MB
+const ACCEPTED_MIME = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'image/png',
+  'image/jpeg',
+  'image/jpg',
+];
+
+function formatBytes(b: number): string {
+  if (b < 1024) return `${b} B`;
+  if (b < 1024 * 1024) return `${(b / 1024).toFixed(1)} KB`;
+  return `${(b / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result as string);
+    reader.onerror = () => reject(reader.error);
+    reader.readAsDataURL(file);
+  });
+}
 
 interface Habilitacao {
   licitacoes_habilitacao_id: number;
@@ -57,6 +84,46 @@ export default function DocumentacaoPage() {
   const [novoNome, setNovoNome] = useState('');
   const [novoValidade, setNovoValidade] = useState('');
   const [novoLoading, setNovoLoading] = useState(false);
+  const [novoFile, setNovoFile] = useState<File | null>(null);
+  const [novoFileError, setNovoFileError] = useState('');
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
+
+  function resetNovoModal() {
+    setShowNovoModal(false);
+    setNovoNome('');
+    setNovoValidade('');
+    setNovoFile(null);
+    setNovoFileError('');
+    setDragOver(false);
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  }
+
+  function handleSelectFile(file: File | null) {
+    setNovoFileError('');
+    if (!file) { setNovoFile(null); return; }
+
+    // Type check (some browsers leave .doc/.docx mime empty — fall back to extension)
+    const ext = file.name.split('.').pop()?.toLowerCase() || '';
+    const okByMime = ACCEPTED_MIME.includes(file.type);
+    const okByExt  = ['pdf', 'doc', 'docx', 'png', 'jpg', 'jpeg'].includes(ext);
+    if (!okByMime && !okByExt) {
+      setNovoFileError('Formato não suportado. Use PDF, DOC, DOCX, PNG ou JPG.');
+      return;
+    }
+
+    if (file.size > MAX_FILE_BYTES) {
+      setNovoFileError(`Arquivo muito grande (${formatBytes(file.size)}). Máximo 10 MB.`);
+      return;
+    }
+
+    setNovoFile(file);
+    // Pre-fill name if empty, using filename without extension
+    if (!novoNome.trim()) {
+      const base = file.name.replace(/\.[^.]+$/, '');
+      setNovoNome(base.slice(0, 200));
+    }
+  }
 
   async function loadData() {
     setLoading(true);
@@ -124,19 +191,35 @@ export default function DocumentacaoPage() {
     if (!novoNome.trim()) return;
     setNovoLoading(true);
     try {
-      await fetch('/api/habilitacoes', {
+      let documento = '';
+      if (novoFile) {
+        try {
+          documento = await fileToDataUrl(novoFile);
+        } catch {
+          setNovoFileError('Falha ao ler o arquivo. Tente novamente.');
+          setNovoLoading(false);
+          return;
+        }
+      }
+
+      const res = await fetch('/api/habilitacoes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           nome: novoNome.trim(),
-          documento: '',
+          documento,
           dataValidade: novoValidade || null,
           licitacaoGoverno: '',
         }),
       });
-      setShowNovoModal(false);
-      setNovoNome('');
-      setNovoValidade('');
+
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setNovoFileError(data.error || `Erro ao salvar (${res.status}).`);
+        return;
+      }
+
+      resetNovoModal();
       await loadData();
     } finally {
       setNovoLoading(false);
@@ -592,7 +675,7 @@ export default function DocumentacaoPage() {
             padding: '16px',
           }}
           onClick={(e) => {
-            if (e.target === e.currentTarget) setShowNovoModal(false);
+            if (e.target === e.currentTarget) resetNovoModal();
           }}
         >
           <div
@@ -610,7 +693,7 @@ export default function DocumentacaoPage() {
                 Novo documento
               </h2>
               <button
-                onClick={() => setShowNovoModal(false)}
+                onClick={resetNovoModal}
                 style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#7B7B7B' }}
               >
                 <X size={20} />
@@ -660,29 +743,123 @@ export default function DocumentacaoPage() {
               />
             </div>
 
-            {/* Drag-drop placeholder */}
-            <div
-              style={{
-                border: '2px dashed #E8E8E8',
-                borderRadius: '10px',
-                padding: '24px',
-                textAlign: 'center',
-                color: '#7B7B7B',
-                fontSize: '13px',
-                marginBottom: '24px',
-                backgroundColor: '#FAFAFA',
-              }}
-            >
-              <FolderOpen size={28} color="#E8E8E8" style={{ margin: '0 auto 8px' }} />
-              <p style={{ margin: 0 }}>Arraste um arquivo aqui ou clique para selecionar</p>
-              <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#C0C0C0' }}>
-                PDF, DOC, PNG — máx. 10 MB
-              </p>
-            </div>
+            {/* Hidden file input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".pdf,.doc,.docx,.png,.jpg,.jpeg,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document,image/png,image/jpeg"
+              onChange={(e) => handleSelectFile(e.target.files?.[0] || null)}
+              style={{ display: 'none' }}
+            />
+
+            {/* Dropzone or file preview */}
+            {!novoFile ? (
+              <div
+                role="button"
+                tabIndex={0}
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') fileInputRef.current?.click(); }}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+                onDragEnter={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(true); }}
+                onDragLeave={(e) => { e.preventDefault(); e.stopPropagation(); setDragOver(false); }}
+                onDrop={(e) => {
+                  e.preventDefault(); e.stopPropagation();
+                  setDragOver(false);
+                  const f = e.dataTransfer.files?.[0];
+                  if (f) handleSelectFile(f);
+                }}
+                style={{
+                  border: `2px dashed ${dragOver ? '#FF6600' : '#E8E8E8'}`,
+                  borderRadius: '10px',
+                  padding: '24px',
+                  textAlign: 'center',
+                  color: dragOver ? '#FF6600' : '#7B7B7B',
+                  fontSize: '13px',
+                  marginBottom: novoFileError ? '8px' : '24px',
+                  backgroundColor: dragOver ? '#FFF7F0' : '#FAFAFA',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                  outline: 'none',
+                }}
+              >
+                <Upload size={28} color={dragOver ? '#FF6600' : '#C0C0C0'} style={{ margin: '0 auto 8px' }} />
+                <p style={{ margin: 0, fontWeight: 500 }}>Arraste um arquivo aqui ou clique para selecionar</p>
+                <p style={{ margin: '4px 0 0 0', fontSize: '11px', color: '#C0C0C0' }}>
+                  PDF, DOC, DOCX, PNG, JPG — máx. 10 MB
+                </p>
+              </div>
+            ) : (
+              <div
+                style={{
+                  border: '1px solid #E8E8E8',
+                  borderRadius: '10px',
+                  padding: '14px 16px',
+                  marginBottom: novoFileError ? '8px' : '24px',
+                  backgroundColor: '#F9FAFB',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '12px',
+                }}
+              >
+                <div
+                  style={{
+                    width: '40px', height: '40px', borderRadius: '8px', flexShrink: 0,
+                    backgroundColor: '#FFF1E6', display: 'flex',
+                    alignItems: 'center', justifyContent: 'center',
+                  }}
+                >
+                  <FileText size={20} color="#FF6600" />
+                </div>
+                <div style={{ flex: 1, minWidth: 0 }}>
+                  <div
+                    style={{
+                      fontSize: '13px', fontWeight: 600, color: '#262E3A',
+                      whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis',
+                    }}
+                    title={novoFile.name}
+                  >
+                    {novoFile.name}
+                  </div>
+                  <div style={{ fontSize: '11.5px', color: '#7B7B7B', marginTop: '2px' }}>
+                    {formatBytes(novoFile.size)}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setNovoFile(null);
+                    setNovoFileError('');
+                    if (fileInputRef.current) fileInputRef.current.value = '';
+                  }}
+                  title="Remover arquivo"
+                  style={{
+                    background: 'none', border: 'none', cursor: 'pointer',
+                    padding: '6px', borderRadius: '6px', color: '#7B7B7B',
+                    display: 'flex', alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FEE2E2'; (e.currentTarget as HTMLElement).style.color = '#dc2626'; }}
+                  onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.backgroundColor = 'transparent'; (e.currentTarget as HTMLElement).style.color = '#7B7B7B'; }}
+                >
+                  <X size={16} />
+                </button>
+              </div>
+            )}
+
+            {/* File error */}
+            {novoFileError && (
+              <div
+                style={{
+                  fontSize: '12.5px', color: '#dc2626', marginBottom: '20px',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                <X size={13} /> {novoFileError}
+              </div>
+            )}
 
             <div className="flex" style={{ gap: '10px', justifyContent: 'flex-end' }}>
               <button
-                onClick={() => setShowNovoModal(false)}
+                onClick={resetNovoModal}
                 style={{
                   padding: '9px 18px',
                   borderRadius: '8px',
