@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
-import { ArrowLeft, Star, ExternalLink, MapPin, Calendar, Building2, FileText, Loader2, Plus, CheckSquare } from 'lucide-react';
+import { ArrowLeft, Star, ExternalLink, MapPin, Calendar, Building2, FileText, Loader2, Plus, CheckSquare, Sparkles, MessageCircle } from 'lucide-react';
+import AIResumoModal from '@/components/ai/AIResumoModal';
+import AIPerguntarModal from '@/components/ai/AIPerguntarModal';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
@@ -57,6 +59,8 @@ export default function LicitacaoDetailPage() {
   const [anotacaoLoading, setAnotacaoLoading] = useState(false);
   const [tarefaLoading, setTarefaLoading] = useState(false);
   const [tarefaOpen, setTarefaOpen] = useState(false);
+  const [aiResumoOpen, setAiResumoOpen] = useState(false);
+  const [aiPerguntarOpen, setAiPerguntarOpen] = useState(false);
 
   useEffect(() => {
     // Auto-open tarefa dialog if coming from "Criar tarefa" button
@@ -213,6 +217,66 @@ export default function LicitacaoDetailPage() {
           </a>
         </div>
       </div>
+
+      {/* ── AI Actions row ── */}
+      {licitacao && (
+        <div style={{
+          backgroundColor: '#fff', borderRadius: '12px', padding: '14px 18px',
+          border: '1px solid #EEF0F4', boxShadow: '0 1px 4px rgba(15,23,42,0.04)',
+          display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '12px',
+        }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flex: '1 1 auto', minWidth: 0 }}>
+            <div style={{
+              width: '36px', height: '36px', borderRadius: '10px', flexShrink: 0,
+              background: 'linear-gradient(135deg, #4F46E5 0%, #A855F7 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+            }}>
+              <Sparkles className="h-4 w-4" style={{ color: '#fff' }} />
+            </div>
+            <div style={{ minWidth: 0 }}>
+              <div style={{ fontSize: '13px', fontWeight: 800, color: '#262E3A', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                Ações com IA
+                <span style={{ fontSize: '9px', fontWeight: 800, backgroundColor: '#EDE9FE', color: '#7C3AED', padding: '2px 6px', borderRadius: '4px', letterSpacing: '0.5px' }}>BETA</span>
+              </div>
+              <div style={{ fontSize: '11.5px', color: '#7B7B7B' }}>
+                Use IA para resumir o edital ou tirar dúvidas em tempo real.
+              </div>
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
+            <button
+              onClick={() => setAiResumoOpen(true)}
+              style={{
+                height: '38px', padding: '0 16px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+                color: '#fff', fontSize: '13px', fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: '7px',
+                boxShadow: '0 2px 8px rgba(124,58,237,0.25)',
+                transition: 'transform 0.12s, box-shadow 0.12s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(124,58,237,0.35)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(124,58,237,0.25)'; }}
+            >
+              <Sparkles className="h-4 w-4" /> Resumo do Edital
+            </button>
+            <button
+              onClick={() => setAiPerguntarOpen(true)}
+              style={{
+                height: '38px', padding: '0 16px', borderRadius: '10px', border: 'none', cursor: 'pointer',
+                background: 'linear-gradient(135deg, #0EA5E9 0%, #0891B2 50%, #0E7490 100%)',
+                color: '#fff', fontSize: '13px', fontWeight: 700,
+                display: 'inline-flex', alignItems: 'center', gap: '7px',
+                boxShadow: '0 2px 8px rgba(14,165,233,0.25)',
+                transition: 'transform 0.12s, box-shadow 0.12s',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(-1px)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 4px 14px rgba(14,165,233,0.35)'; }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.transform = 'translateY(0)'; (e.currentTarget as HTMLElement).style.boxShadow = '0 2px 8px rgba(14,165,233,0.25)'; }}
+            >
+              <MessageCircle className="h-4 w-4" /> Pergunte ao Edital
+            </button>
+          </div>
+        </div>
+      )}
 
       {loading && !licitacao && (
         <div className="flex justify-center py-20">
@@ -426,6 +490,26 @@ export default function LicitacaoDetailPage() {
           )}
         </div>
       </div>
+
+      {/* AI Modals */}
+      {licitacao && (
+        <>
+          <AIResumoModal
+            open={aiResumoOpen}
+            onClose={() => setAiResumoOpen(false)}
+            licitacaoId={id}
+            licitacao={licitacao}
+            items={items}
+          />
+          <AIPerguntarModal
+            open={aiPerguntarOpen}
+            onClose={() => setAiPerguntarOpen(false)}
+            licitacaoId={id}
+            licitacao={licitacao}
+            items={items}
+          />
+        </>
+      )}
     </div>
   );
 }
