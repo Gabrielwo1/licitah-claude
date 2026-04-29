@@ -12,21 +12,80 @@ import { Licitacao } from '@/lib/types';
 
 // ── Data fetches ──────────────────────────────────────────────────────────────
 
-async function getRecentLicitacoesPNCP(): Promise<Licitacao[]> {
-  try {
-    const today = new Date();
-    const sevenDaysAgo = new Date(Date.now() - 7 * 86400000);
-    const fmt = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
-    const res = await fetch(
-      `https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?dataInicial=${fmt(sevenDaysAgo)}&dataFinal=${fmt(today)}&pagina=1&tamanhoPagina=10&codigoModalidadeContratacao=7`,
-      { headers: { Accept: 'application/json' }, next: { revalidate: 300 } }
-    );
-    if (!res.ok) return [];
-    const json = await res.json();
-    return (json.data || []).slice(0, 5);
-  } catch {
-    return [];
+/**
+ * Fetch user's latest oportunidades — applies keyword + region filtering
+ * against PNCP results from the last 30 days. Lightweight version of the
+ * /api/oportunidades/buscar endpoint optimized for dashboard preview.
+ */
+async function getUltimasOportunidades(keywords: string[], region: string): Promise<Licitacao[]> {
+  if (keywords.length === 0) return [];
+
+  // Parse region: "" | "SP" | "SP:Campinas"
+  let uf = '', cidade = '';
+  if (region) {
+    if (region.includes(':')) {
+      const idx = region.indexOf(':');
+      uf = region.slice(0, idx); cidade = region.slice(idx + 1);
+    } else {
+      uf = region;
+    }
   }
+
+  const today = new Date();
+  const monthAgo = new Date(); monthAgo.setDate(today.getDate() - 30);
+  const fmt = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
+
+  // Fetch top modalidades in parallel (Pregão + Dispensa cover ~80% of volume)
+  const modalidades = ['7', '8', '5'];
+  const fetches = modalidades.map(mod => {
+    const params = new URLSearchParams({
+      dataInicial: fmt(monthAgo),
+      dataFinal: fmt(today),
+      pagina: '1',
+      tamanhoPagina: '50',
+      codigoModalidadeContratacao: mod,
+    });
+    if (uf) params.set('uf', uf);
+    return fetch(`https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?${params}`, {
+      headers: { Accept: 'application/json' },
+      next: { revalidate: 600 },
+    })
+      .then(r => r.ok ? r.json() : { data: [] })
+      .then(j => j.data || [])
+      .catch(() => []);
+  });
+
+  const results = await Promise.all(fetches);
+  let merged: any[] = results.flat();
+
+  // Dedupe
+  const seen = new Set<string>();
+  merged = merged.filter(l => {
+    if (seen.has(l.numeroControlePNCP)) return false;
+    seen.add(l.numeroControlePNCP); return true;
+  });
+
+  // Filter by keywords
+  const kws = keywords.map(k => k.toLowerCase().trim());
+  merged = merged.filter(l => {
+    const obj = (l.objetoCompra || '').toLowerCase();
+    return kws.some(kw => obj.includes(kw));
+  });
+
+  // City filter
+  if (cidade) {
+    const c = cidade.toLowerCase();
+    merged = merged.filter(l => l.unidadeOrgao?.municipioNome?.toLowerCase().includes(c));
+  }
+
+  // Sort by publication date desc, top 5
+  merged.sort((a, b) => {
+    const da = new Date(a.dataPublicacaoPncp || 0).getTime();
+    const db = new Date(b.dataPublicacaoPncp || 0).getTime();
+    return db - da;
+  });
+
+  return merged.slice(0, 5);
 }
 
 async function getStats(userId: string) {
@@ -198,13 +257,15 @@ export default async function DashboardPage() {
   const empresaId = (session?.user as any)?.empresaId || null;
   const empresaNome = (session?.user as any)?.empresaNome || null;
 
-  const [licitacoes, stats, docs, pipeline, tarefas, oppConfig] = await Promise.all([
-    getRecentLicitacoesPNCP(),
+  // Load user config first (needed for oportunidade fetch), then everything in parallel
+  const oppConfig = await getOportunidadeConfig(userId);
+
+  const [ultimasOpp, stats, docs, pipeline, tarefas] = await Promise.all([
+    getUltimasOportunidades(oppConfig.keywords, oppConfig.region),
     getStats(userId),
     getDocumentosResumo(userId),
     getPipeline(empresaId),
     getProximasTarefas(userId),
-    getOportunidadeConfig(userId),
   ]);
 
   const firstName = session?.user?.name?.split(' ')[0] || 'Usuário';
@@ -429,50 +490,96 @@ export default async function DashboardPage() {
             )}
           </Card>
 
-          {/* Licitações recentes (PNCP) */}
-          <Card title="Licitações recentes no PNCP" icon={Activity} href="/dashboard/licitacoes" linkLabel="Ver todas">
-            {licitacoes.length === 0 ? (
+          {/* Últimas oportunidades (filtradas pelas keywords do usuário) */}
+          <Card title="Últimas oportunidades" icon={Target} href="/dashboard/oportunidades" linkLabel="Ver todas">
+            {oppConfig.keywords.length === 0 ? (
               <EmptyBlock
-                icon={Activity}
-                title="Não foi possível carregar licitações no momento"
-                desc="A API do governo pode estar indisponível. Tente novamente em alguns instantes."
+                icon={Target}
+                title="Configure suas oportunidades"
+                desc="Defina palavras-chave do seu segmento para receber automaticamente licitações relevantes ao seu negócio."
+                cta={{ href: '/dashboard/oportunidades', label: 'Definir oportunidades' }}
+              />
+            ) : ultimasOpp.length === 0 ? (
+              <EmptyBlock
+                icon={Target}
+                title="Nenhuma oportunidade nos últimos 30 dias"
+                desc="Tente ampliar suas palavras-chave ou aumentar a região para receber mais resultados."
+                cta={{ href: '/dashboard/oportunidades', label: 'Ajustar filtros' }}
               />
             ) : (
-              <div style={{ display: 'flex', flexDirection: 'column' }}>
-                {licitacoes.map((l, idx) => (
-                  <Link
-                    key={l.numeroControlePNCP}
-                    href={`/dashboard/licitacoes/${encodeURIComponent(l.numeroControlePNCP)}`}
-                    style={{
-                      display: 'flex', alignItems: 'flex-start', gap: '14px',
-                      padding: '14px 0', textDecoration: 'none',
-                      borderBottom: idx < licitacoes.length - 1 ? '1px solid #F5F5F5' : 'none',
-                    }}
-                  >
-                    <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <FileText className="h-4 w-4" style={{ color: '#FF6600' }} />
-                    </div>
-                    <div style={{ flex: 1, minWidth: 0 }}>
-                      <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#262E3A', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
-                        {l.objetoCompra}
-                      </div>
-                      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
-                        <span style={{ fontSize: '11.5px', color: '#7B7B7B' }}>
-                          {l.orgaoEntidade?.razaoSocial} · {l.unidadeOrgao?.ufSigla}
-                        </span>
-                        <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0a1175', backgroundColor: '#EEF0FF', padding: '2px 8px', borderRadius: '6px' }}>
-                          {l.modalidadeNome}
-                        </span>
-                      </div>
-                    </div>
-                    {l.valorTotalEstimado && l.valorTotalEstimado > 0 ? (
-                      <div style={{ fontSize: '13px', fontWeight: 700, color: '#0a1175', flexShrink: 0, textAlign: 'right' }}>
-                        {formatCurrency(l.valorTotalEstimado)}
-                      </div>
-                    ) : null}
-                  </Link>
-                ))}
-              </div>
+              <>
+                {/* Keywords/region preview chips */}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '6px', marginBottom: '14px', paddingBottom: '12px', borderBottom: '1px dashed #F0F0F0' }}>
+                  <span style={{ fontSize: '11.5px', color: '#7B7B7B', fontWeight: 600, marginRight: '4px', alignSelf: 'center' }}>Filtrando por:</span>
+                  {oppConfig.keywords.slice(0, 4).map(kw => (
+                    <span key={kw} style={{ backgroundColor: '#0a1175', color: '#fff', fontSize: '10.5px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px' }}>
+                      {kw}
+                    </span>
+                  ))}
+                  {oppConfig.keywords.length > 4 && (
+                    <span style={{ fontSize: '10.5px', color: '#7B7B7B', fontWeight: 700, alignSelf: 'center' }}>
+                      +{oppConfig.keywords.length - 4}
+                    </span>
+                  )}
+                  {oppConfig.region && (
+                    <span style={{ backgroundColor: '#FF6600', color: '#fff', fontSize: '10.5px', fontWeight: 700, padding: '3px 9px', borderRadius: '20px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                      📍 {oppConfig.region.replace(':', ' - ')}
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ display: 'flex', flexDirection: 'column' }}>
+                  {ultimasOpp.map((l, idx) => {
+                    const pubDate = l.dataPublicacaoPncp ? new Date(l.dataPublicacaoPncp) : null;
+                    const days = pubDate ? daysUntil(pubDate) : null;
+                    const ago = days !== null ? Math.abs(days) : null;
+                    const recencyLabel = ago === null ? '' : ago === 0 ? 'Hoje' : ago === 1 ? 'Ontem' : `Há ${ago}d`;
+                    return (
+                      <Link
+                        key={l.numeroControlePNCP}
+                        href={`/dashboard/licitacoes/${encodeURIComponent(l.numeroControlePNCP)}`}
+                        style={{
+                          display: 'flex', alignItems: 'flex-start', gap: '14px',
+                          padding: '14px 0', textDecoration: 'none',
+                          borderBottom: idx < ultimasOpp.length - 1 ? '1px solid #F5F5F5' : 'none',
+                        }}
+                      >
+                        <div style={{ width: '40px', height: '40px', borderRadius: '10px', backgroundColor: '#FFF3E8', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                          <Target className="h-4 w-4" style={{ color: '#FF6600' }} />
+                        </div>
+                        <div style={{ flex: 1, minWidth: 0 }}>
+                          <div style={{ fontSize: '13.5px', fontWeight: 600, color: '#262E3A', lineHeight: 1.45, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                            {l.objetoCompra}
+                          </div>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '6px', flexWrap: 'wrap' }}>
+                            <span style={{ fontSize: '11.5px', color: '#7B7B7B', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', maxWidth: '240px' }}>
+                              {l.unidadeOrgao?.municipioNome} · {l.unidadeOrgao?.ufSigla}
+                            </span>
+                            <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0a1175', backgroundColor: '#EEF0FF', padding: '2px 8px', borderRadius: '6px' }}>
+                              {l.modalidadeNome}
+                            </span>
+                            {recencyLabel && (
+                              <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#16A34A', backgroundColor: '#DCFCE7', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
+                                <Clock className="h-3 w-3" /> {recencyLabel}
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        {l.valorTotalEstimado && l.valorTotalEstimado > 0 ? (
+                          <div style={{ flexShrink: 0, textAlign: 'right' }}>
+                            <div style={{ fontSize: '13px', fontWeight: 700, color: '#0a1175' }}>
+                              {formatCurrency(l.valorTotalEstimado)}
+                            </div>
+                            <div style={{ fontSize: '10.5px', color: '#9B9B9B', fontWeight: 600, marginTop: '1px' }}>
+                              valor estimado
+                            </div>
+                          </div>
+                        ) : null}
+                      </Link>
+                    );
+                  })}
+                </div>
+              </>
             )}
           </Card>
         </div>
