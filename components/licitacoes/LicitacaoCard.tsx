@@ -2,10 +2,12 @@
 
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-import { Heart, Settings, ExternalLink, List, ChevronDown, ChevronUp, Loader2 } from 'lucide-react';
+import { Heart, Settings, ExternalLink, List, ChevronDown, ChevronUp, Loader2, Sparkles, MessageCircle } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
 import { useState } from 'react';
+import AIResumoModal from '@/components/ai/AIResumoModal';
+import AIPerguntarModal from '@/components/ai/AIPerguntarModal';
 
 // ── Itens localStorage cache helpers (shared key with ItensTab) ───────────────
 const ITENS_TTL = 24 * 60 * 60 * 1000;
@@ -60,6 +62,47 @@ export function LicitacaoCard({
   const [itensOpen, setItensOpen] = useState(false);
   const [itens, setItens] = useState<any[] | null>(null);
   const [itensLoading, setItensLoading] = useState(false);
+
+  // AI modals
+  const [aiResumoOpen, setAiResumoOpen] = useState(false);
+  const [aiPerguntarOpen, setAiPerguntarOpen] = useState(false);
+  const [aiLoadingTarget, setAiLoadingTarget] = useState<'resumo' | 'perguntar' | null>(null);
+
+  /** Fetch items if not yet cached, then open the requested AI modal. */
+  async function openAI(target: 'resumo' | 'perguntar') {
+    setAiLoadingTarget(target);
+    let currentItems = itens;
+
+    // If items not loaded yet, fetch them (cache-first)
+    if (currentItems === null) {
+      const cached = getCachedItens(licitacao.numeroControlePNCP);
+      if (cached) {
+        currentItems = cached;
+        setItens(cached);
+      } else {
+        try {
+          const res = await fetch(`/api/licitacoes/itens?identificador=${encodeURIComponent(licitacao.numeroControlePNCP)}`);
+          if (res.ok) {
+            const data = await res.json();
+            const arr = Array.isArray(data) ? data : [];
+            currentItems = arr;
+            setItens(arr);
+            if (arr.length > 0) saveCachedItens(licitacao.numeroControlePNCP, arr);
+          } else {
+            currentItems = [];
+            setItens([]);
+          }
+        } catch {
+          currentItems = [];
+          setItens([]);
+        }
+      }
+    }
+
+    setAiLoadingTarget(null);
+    if (target === 'resumo')    setAiResumoOpen(true);
+    else                        setAiPerguntarOpen(true);
+  }
 
   async function toggleItens(e: React.MouseEvent) {
     e.preventDefault();
@@ -353,6 +396,58 @@ export function LicitacaoCard({
             Itens
             {itensOpen ? <ChevronUp className="h-3 w-3" /> : <ChevronDown className="h-3 w-3" />}
           </button>
+
+          {/* ── AI buttons ── */}
+          <button
+            onClick={() => openAI('resumo')}
+            disabled={aiLoadingTarget !== null}
+            title="Gerar resumo executivo do edital com IA"
+            className="flex items-center gap-1.5 font-semibold transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 50%, #A855F7 100%)',
+              color: '#fff',
+              fontSize: '13px',
+              padding: '7px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: aiLoadingTarget !== null ? 'wait' : 'pointer',
+              boxShadow: '0 1px 4px rgba(124,58,237,0.25)',
+              opacity: aiLoadingTarget !== null && aiLoadingTarget !== 'resumo' ? 0.55 : 1,
+            }}
+            onMouseEnter={e => { if (aiLoadingTarget === null) (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 10px rgba(124,58,237,0.4)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(124,58,237,0.25)'; }}
+          >
+            {aiLoadingTarget === 'resumo'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <Sparkles className="h-3.5 w-3.5" />}
+            Resumo IA
+            <span style={{ fontSize: '8.5px', fontWeight: 800, backgroundColor: 'rgba(255,255,255,0.25)', padding: '1px 5px', borderRadius: '3px', letterSpacing: '0.4px' }}>BETA</span>
+          </button>
+
+          <button
+            onClick={() => openAI('perguntar')}
+            disabled={aiLoadingTarget !== null}
+            title="Tirar dúvidas sobre o edital com IA"
+            className="flex items-center gap-1.5 font-semibold transition-all"
+            style={{
+              background: 'linear-gradient(135deg, #0EA5E9 0%, #0891B2 50%, #0E7490 100%)',
+              color: '#fff',
+              fontSize: '13px',
+              padding: '7px 14px',
+              borderRadius: '6px',
+              border: 'none',
+              cursor: aiLoadingTarget !== null ? 'wait' : 'pointer',
+              boxShadow: '0 1px 4px rgba(14,165,233,0.25)',
+              opacity: aiLoadingTarget !== null && aiLoadingTarget !== 'perguntar' ? 0.55 : 1,
+            }}
+            onMouseEnter={e => { if (aiLoadingTarget === null) (e.currentTarget as HTMLElement).style.boxShadow = '0 3px 10px rgba(14,165,233,0.4)'; }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.boxShadow = '0 1px 4px rgba(14,165,233,0.25)'; }}
+          >
+            {aiLoadingTarget === 'perguntar'
+              ? <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              : <MessageCircle className="h-3.5 w-3.5" />}
+            Pergunte ao Edital
+          </button>
         </div>
 
         {/* ── Itens dropdown ── */}
@@ -422,6 +517,22 @@ export function LicitacaoCard({
           </div>
         )}
       </div>
+
+      {/* AI Modals */}
+      <AIResumoModal
+        open={aiResumoOpen}
+        onClose={() => setAiResumoOpen(false)}
+        licitacaoId={licitacao.numeroControlePNCP}
+        licitacao={licitacao}
+        items={itens || []}
+      />
+      <AIPerguntarModal
+        open={aiPerguntarOpen}
+        onClose={() => setAiPerguntarOpen(false)}
+        licitacaoId={licitacao.numeroControlePNCP}
+        licitacao={licitacao}
+        items={itens || []}
+      />
     </div>
   );
 }
