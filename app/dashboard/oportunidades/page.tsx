@@ -32,6 +32,17 @@ function licitacaoDate(l: any): Date {
   return new Date(l.dataPublicacaoPncp || l.dataAberturaProposta || 0);
 }
 
+function formatRelativeTime(ts: number): string {
+  const diffSec = Math.max(0, Math.floor((Date.now() - ts) / 1000));
+  if (diffSec < 60)    return 'agora mesmo';
+  const diffMin = Math.floor(diffSec / 60);
+  if (diffMin < 60)    return `há ${diffMin} min`;
+  const diffHr = Math.floor(diffMin / 60);
+  if (diffHr < 24)     return `há ${diffHr}h${diffMin % 60 ? ` ${diffMin % 60}min` : ''}`;
+  const diffDay = Math.floor(diffHr / 24);
+  return `há ${diffDay}d`;
+}
+
 function relativeDateLabel(d: Date, today: Date): string {
   const dKey = dayKey(d);
   const tKey = dayKey(today);
@@ -71,42 +82,84 @@ export default function OportunidadesPage() {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [ufConfig, setUfConfig] = useState('');
   const [loading, setLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);  // background revalidation
   const [modalOpen, setModalOpen] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
+  const [fetchedAt, setFetchedAt] = useState<number | null>(null);
 
-  // Load oportunidades results
-  useEffect(() => {
-    const cacheKey = 'oportunidades_cache';
+  // Cache config: 30min "fresh" → use silently. Beyond that → revalidate in background.
+  const CACHE_KEY = 'oportunidades_cache';
+  const FRESH_TTL = 30 * 60 * 1000;        // 30 min
+  const STALE_TTL = 6  * 60 * 60 * 1000;   // 6 hours — drop entirely
+
+  function applyResponse(json: any) {
+    const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
+    const data = json.data || [];
+    let regionLabel = '';
+    if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
+    else if (json.uf) regionLabel = json.uf;
+    setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data);
+    setHasConfig(kws.length > 0);
+    const ts = json.fetchedAt ? new Date(json.fetchedAt).getTime() : Date.now();
+    setFetchedAt(ts);
+    if (kws.length > 0) {
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts, kws, uf: regionLabel })); } catch {}
+    }
+  }
+
+  async function fetchAndApply(opts?: { silent?: boolean }) {
+    if (opts?.silent) setRefreshing(true); else setLoading(true);
     try {
-      const raw = localStorage.getItem(cacheKey);
+      const res = await fetch('/api/oportunidades/buscar', { cache: 'no-store' });
+      const json = res.ok ? await res.json() : { keywords: [], data: [] };
+      applyResponse(json);
+    } catch {} finally {
+      if (opts?.silent) setRefreshing(false); else setLoading(false);
+    }
+  }
+
+  // Initial load: SWR-style — show cache instantly if fresh, then revalidate
+  useEffect(() => {
+    let usedCache = false;
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
       if (raw) {
-        const { data, ts, kws, uf: cachedUf } = JSON.parse(raw);
-        if (Date.now() - ts < 4 * 3600 * 1000) {
-          const cleanKws: string[] = Array.isArray(kws) ? kws.filter(Boolean) : [];
-          setLicitacoes(data); setKeywords(cleanKws); setUfConfig(cachedUf || '');
+        const parsed = JSON.parse(raw);
+        const age = Date.now() - parsed.ts;
+        if (age < STALE_TTL) {
+          const cleanKws: string[] = Array.isArray(parsed.kws) ? parsed.kws.filter(Boolean) : [];
+          setLicitacoes(parsed.data || []);
+          setKeywords(cleanKws);
+          setUfConfig(parsed.uf || '');
           setHasConfig(cleanKws.length > 0);
-          setLoading(false); return;
+          setFetchedAt(parsed.ts);
+          setLoading(false);
+          usedCache = true;
+          // If cache is older than fresh window, revalidate in background
+          if (age >= FRESH_TTL) fetchAndApply({ silent: true });
         }
       }
     } catch {}
+    if (!usedCache) fetchAndApply();
+  }, []);
 
-    fetch('/api/oportunidades/buscar')
-      .then(r => r.ok ? r.json() : { keywords: [], data: [] })
-      .then((json: any) => {
-        const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
-        const data = json.data || [];
-        // Build readable region label
-        let regionLabel = '';
-        if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
-        else if (json.uf) regionLabel = json.uf;
-        setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data);
-        setHasConfig(kws.length > 0);
-        if (kws.length > 0) {
-          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws, uf: regionLabel })); } catch {}
-        }
-      })
-      .catch(() => {})
-      .finally(() => setLoading(false));
+  // Refetch when user returns to the tab/window if cache is stale
+  useEffect(() => {
+    function maybeRefresh() {
+      if (document.hidden) return;
+      try {
+        const raw = localStorage.getItem(CACHE_KEY);
+        if (!raw) { fetchAndApply({ silent: true }); return; }
+        const { ts } = JSON.parse(raw);
+        if (Date.now() - ts > FRESH_TTL) fetchAndApply({ silent: true });
+      } catch {}
+    }
+    window.addEventListener('focus', maybeRefresh);
+    document.addEventListener('visibilitychange', maybeRefresh);
+    return () => {
+      window.removeEventListener('focus', maybeRefresh);
+      document.removeEventListener('visibilitychange', maybeRefresh);
+    };
   }, []);
 
   // Group by day
@@ -192,22 +245,8 @@ export default function OportunidadesPage() {
 
 
   function reload() {
-    try { localStorage.removeItem('oportunidades_cache'); } catch {}
-    setLoading(true);
-    fetch('/api/oportunidades/buscar')
-      .then(r => r.ok ? r.json() : { keywords: [], data: [] })
-      .then((json: any) => {
-        const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
-        const data = json.data || [];
-        let regionLabel = '';
-        if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
-        else if (json.uf) regionLabel = json.uf;
-        setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data); setHasConfig(kws.length > 0);
-        if (kws.length > 0) {
-          try { localStorage.setItem('oportunidades_cache', JSON.stringify({ data, ts: Date.now(), kws, uf: regionLabel })); } catch {}
-        }
-      })
-      .finally(() => setLoading(false));
+    try { localStorage.removeItem(CACHE_KEY); } catch {}
+    fetchAndApply();
   }
 
   return (
@@ -288,13 +327,23 @@ export default function OportunidadesPage() {
         {/* Top bar: title + view toggle */}
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '16px 20px', borderBottom: '1px solid #F0F0F0', gap: '12px', flexWrap: 'wrap' }}>
           <div>
-            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#262E3A', margin: 0 }}>
+            <h2 style={{ fontSize: '16px', fontWeight: 800, color: '#262E3A', margin: 0, display: 'flex', alignItems: 'center', gap: '8px' }}>
               {displayMode === 'lista' ? 'Oportunidades encontradas' : 'Calendário de oportunidades'}
+              {refreshing && (
+                <span style={{ fontSize: '10.5px', fontWeight: 700, color: '#0EA5E9', backgroundColor: '#F0F9FF', padding: '2px 8px', borderRadius: '6px', display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
+                  <Loader2 className="h-3 w-3 animate-spin" /> Atualizando…
+                </span>
+              )}
             </h2>
             <p style={{ fontSize: '12.5px', color: '#7B7B7B', margin: '2px 0 0 0' }}>
               {displayMode === 'lista'
                 ? `${filteredList.length} resultado${filteredList.length !== 1 ? 's' : ''}${filteredList.length !== licitacoes.length ? ` de ${licitacoes.length}` : ''}`
                 : 'Visualize por dia, semana ou mês'}
+              {fetchedAt && (
+                <span style={{ marginLeft: '8px', color: '#9B9B9B' }}>
+                  · Atualizado {formatRelativeTime(fetchedAt)}
+                </span>
+              )}
             </p>
           </div>
           <div style={{ display: 'flex', border: '1px solid #E0E0E0', borderRadius: '10px', overflow: 'hidden', backgroundColor: '#F8F8F8', padding: '3px' }}>

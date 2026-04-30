@@ -47,7 +47,7 @@ function parseRegion(raw: string): { uf: string; cidade: string } {
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 const PAGE_SIZE = 50;   // PNCP max
-const MAX_PAGES = 5;    // max pages per modalidade (= 250 records each)
+const MAX_PAGES = 8;    // max pages per modalidade (= 400 records each)
 
 // Modalidades ordered by volume (higher-volume first for better coverage)
 const MODALIDADES = [
@@ -60,8 +60,13 @@ const MODALIDADES = [
   { mod: '11', label: 'Credenciamento' },
 ];
 
-function threeMonthsAgo(): string {
-  const d = new Date(); d.setMonth(d.getMonth() - 3);
+/** Configurable date window. 30 days is enough for daily users; older
+ * editais are usually closed already. Smaller window = far fewer pages
+ * from PNCP, which means we can fit the latest records in MAX_PAGES. */
+const DATE_WINDOW_DAYS = 30;
+
+function dateWindowStart(): string {
+  const d = new Date(); d.setDate(d.getDate() - DATE_WINDOW_DAYS);
   return d.toISOString().split('T')[0].replace(/-/g, '');
 }
 function todayStr(): string {
@@ -70,7 +75,7 @@ function todayStr(): string {
 
 async function fetchPage(mod: string, page: number, uf: string): Promise<{ data: any[]; totalPages: number }> {
   const params = new URLSearchParams({
-    dataInicial: threeMonthsAgo(),
+    dataInicial: dateWindowStart(),
     dataFinal: todayStr(),
     pagina: String(page),
     tamanhoPagina: String(PAGE_SIZE),
@@ -96,17 +101,31 @@ async function fetchPage(mod: string, page: number, uf: string): Promise<{ data:
   }
 }
 
+/**
+ * PNCP returns results in ASCENDING publication-date order by default.
+ * That means page 1 = OLDEST, last page = NEWEST. If we naively fetched
+ * pages 1..N we'd be loading the oldest records and missing today's
+ * publications when totalPages > MAX_PAGES.
+ *
+ * Strategy: fetch the LAST MAX_PAGES (most recent), plus page 1 as a
+ * sanity check (handles the edge case where the API returns desc order
+ * and dedup takes care of any overlap).
+ */
 async function fetchAllPages(mod: string, uf: string): Promise<any[]> {
-  // Fetch page 1 first to discover totalPages
+  // Probe page 1 to learn totalPages
   const { data: page1, totalPages } = await fetchPage(mod, 1, uf);
   if (page1.length === 0) return [];
+  if (totalPages <= 1) return page1;
 
-  const pagesToFetch = Math.min(totalPages, MAX_PAGES);
-  if (pagesToFetch <= 1) return page1;
+  // Build the page list: last MAX_PAGES pages (newest), descending
+  const pagesToFetch: number[] = [];
+  const start = Math.max(2, totalPages - MAX_PAGES + 1);
+  for (let p = totalPages; p >= start; p--) pagesToFetch.push(p);
 
-  // Fetch remaining pages in parallel
+  // Always include page 1 too — guards against PNCP order changes
+  // (cheap because page 1 was already fetched, we just keep it)
   const remaining = await Promise.allSettled(
-    Array.from({ length: pagesToFetch - 1 }, (_, i) => fetchPage(mod, i + 2, uf))
+    pagesToFetch.map(p => fetchPage(mod, p, uf))
   );
 
   const all = [...page1];
@@ -175,5 +194,12 @@ export async function GET(req: NextRequest) {
     return db - da;
   });
 
-  return NextResponse.json({ keywords, uf, cidade, data });
+  return NextResponse.json({
+    keywords,
+    uf,
+    cidade,
+    data,
+    fetchedAt: new Date().toISOString(),
+    windowDays: DATE_WINDOW_DAYS,
+  });
 }

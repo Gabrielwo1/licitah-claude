@@ -48,7 +48,7 @@ async function getUltimasOportunidades(keywords: string[], region: string): Prom
     if (uf) params.set('uf', uf);
     return fetch(`https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?${params}`, {
       headers: { Accept: 'application/json' },
-      next: { revalidate: 600 },
+      next: { revalidate: 300 }, // 5 min — keep dashboard hero fresh
     })
       .then(r => r.ok ? r.json() : { data: [] })
       .then(j => j.data || [])
