@@ -7,17 +7,17 @@ const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 // Máximo que o PNCP aceita por request (>50 retorna 400)
 const PNCP_PAGE_SIZE = 50;
 
-// Modalidades e quantas páginas buscar de cada (50 itens/página, paralelo)
-// Pregão Eletr(7), Pregão Pres(8), Dispensa(14), Concorr Eletr(5) → 3 páginas = 150 cada
-// Demais → 1 página = 50 cada  → total potencial ~750 resultados
-const MODALIDADES_MULTIPAGINA: { mod: string; paginas: number }[] = [
-  { mod: '7',  paginas: 3 }, // Pregão Eletrônico
-  { mod: '8',  paginas: 2 }, // Pregão Presencial
-  { mod: '14', paginas: 3 }, // Dispensa de Licitação
-  { mod: '5',  paginas: 2 }, // Concorrência Eletrônica
-  { mod: '6',  paginas: 1 }, // Concorrência Presencial
-  { mod: '15', paginas: 1 }, // Inexigibilidade
-  { mod: '11', paginas: 1 }, // Credenciamento
+// PNCP retorna resultados em ordem ASCENDENTE de publicação (página 1 = MAIS ANTIGOS).
+// Para usuário ver as licitações mais novas, sempre buscamos as ÚLTIMAS N páginas.
+// Modalidades de alto volume merecem mais páginas porque cobrem janela mais curta.
+const MODALIDADES_MULTIPAGINA: { mod: string; paginas: number; label: string }[] = [
+  { mod: '7',  paginas: 6, label: 'Pregão Eletrônico'    },
+  { mod: '8',  paginas: 4, label: 'Pregão Presencial'    },
+  { mod: '14', paginas: 6, label: 'Dispensa'             },
+  { mod: '5',  paginas: 3, label: 'Concorrência Eletr.'  },
+  { mod: '6',  paginas: 2, label: 'Concorrência Pres.'   },
+  { mod: '15', paginas: 2, label: 'Inexigibilidade'      },
+  { mod: '11', paginas: 2, label: 'Credenciamento'       },
 ];
 
 function toAPIDate(dateStr: string): string {
@@ -34,7 +34,7 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-async function fetchModalidade(
+async function fetchPage(
   modalidade: string,
   dataInicial: string,
   dataFinal: string,
@@ -43,7 +43,7 @@ async function fetchModalidade(
   uf: string,
   codigoIbge: string,
   timeoutMs = 12000
-): Promise<any[]> {
+): Promise<{ data: any[]; totalPages: number }> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), timeoutMs);
 
@@ -61,16 +61,61 @@ async function fetchModalidade(
     const res = await fetch(`${PNCP_API}?${params.toString()}`, {
       headers: { Accept: 'application/json' },
       signal: controller.signal,
-      cache: 'no-store', // sem cache no servidor — cliente usa localStorage
+      cache: 'no-store',
     });
     clearTimeout(timer);
-    if (!res.ok) return [];
+    if (!res.ok) return { data: [], totalPages: 0 };
     const json = await res.json();
-    return json.data || [];
+    const totalPages = json.totalPaginas ?? Math.ceil((json.totalRegistros ?? 0) / PNCP_PAGE_SIZE);
+    return { data: json.data || [], totalPages };
   } catch {
     clearTimeout(timer);
-    return [];
+    return { data: [], totalPages: 0 };
   }
+}
+
+/**
+ * Fetch the most-recent N pages for a modalidade.
+ *  1. Probe page 1 to learn totalPages.
+ *  2. If totalPages <= maxPages → just take page 1 (no truncation needed).
+ *  3. Else → fetch pages [totalPages..totalPages-maxPages+1] (the newest).
+ *
+ * PNCP returns ASC by publication date. Page 1 = oldest, last page = newest.
+ * Without this we'd be filtering against the oldest 3 months of editais.
+ */
+async function fetchMostRecentPages(
+  modalidade: string,
+  dataInicial: string,
+  dataFinal: string,
+  maxPages: number,
+  uf: string,
+  codigoIbge: string
+): Promise<any[]> {
+  const probe = await fetchPage(modalidade, dataInicial, dataFinal, 1, PNCP_PAGE_SIZE, uf, codigoIbge);
+  if (probe.data.length === 0) return [];
+  if (probe.totalPages <= 1) return probe.data;
+
+  // If there are fewer pages than we want, fetch what's available (pages 2..totalPages)
+  // Otherwise fetch the LAST maxPages (newest).
+  const start = probe.totalPages <= maxPages
+    ? 2
+    : probe.totalPages - maxPages + 1;
+  const end = probe.totalPages;
+
+  const pagesToFetch: number[] = [];
+  for (let p = end; p >= start; p--) pagesToFetch.push(p);
+
+  const remaining = await Promise.allSettled(
+    pagesToFetch.map(p => fetchPage(modalidade, dataInicial, dataFinal, p, PNCP_PAGE_SIZE, uf, codigoIbge))
+  );
+
+  const all: any[] = [];
+  // Include probe.data only when totalPages <= maxPages (else probe is the oldest and we skip it)
+  if (probe.totalPages <= maxPages) all.push(...probe.data);
+  remaining.forEach(r => {
+    if (r.status === 'fulfilled') all.push(...r.value.data);
+  });
+  return all;
 }
 
 export async function GET(req: NextRequest) {
@@ -84,42 +129,36 @@ export async function GET(req: NextRequest) {
   const busca = searchParams.get('busca') || '';
   const modalidadeParam = searchParams.get('modalidade') || '';
 
-  // Datas — padrão: últimos 3 meses
   const rawInicial = searchParams.get('dataInicial') || threeMonthsAgo();
-  const rawFinal = searchParams.get('dataFinal') || todayStr();
+  const rawFinal   = searchParams.get('dataFinal')   || todayStr();
   const dataInicial = toAPIDate(rawInicial);
-  const dataFinal = toAPIDate(rawFinal);
+  const dataFinal   = toAPIDate(rawFinal);
 
   let data: any[] = [];
 
   if (modalidadeParam && modalidadeParam !== 'all') {
-    // Modalidade específica — busca 3 páginas em paralelo
-    const pages = await Promise.allSettled([1, 2, 3].map(p =>
-      fetchModalidade(modalidadeParam, dataInicial, dataFinal, p, PNCP_PAGE_SIZE, uf, codigoIbge)
-    ));
-    pages.forEach(r => { if (r.status === 'fulfilled') data.push(...r.value); });
+    // Specific modalidade: fetch its newest pages (up to 8 for deeper coverage)
+    data = await fetchMostRecentPages(modalidadeParam, dataInicial, dataFinal, 8, uf, codigoIbge);
   } else {
-    // Todas as modalidades — múltiplas páginas por modalidade, tudo em paralelo
-    const fetches = MODALIDADES_MULTIPAGINA.flatMap(({ mod, paginas }) =>
-      Array.from({ length: paginas }, (_, i) =>
-        fetchModalidade(mod, dataInicial, dataFinal, i + 1, PNCP_PAGE_SIZE, uf, codigoIbge)
-      )
+    // All modalidades: fetch each one's newest pages in parallel
+    const fetches = MODALIDADES_MULTIPAGINA.map(({ mod, paginas }) =>
+      fetchMostRecentPages(mod, dataInicial, dataFinal, paginas, uf, codigoIbge)
     );
     const results = await Promise.allSettled(fetches);
     results.forEach(r => {
       if (r.status === 'fulfilled') data.push(...r.value);
     });
-
-    // Remove duplicados pelo numeroControlePNCP
-    const seen = new Set<string>();
-    data = data.filter(l => {
-      if (seen.has(l.numeroControlePNCP)) return false;
-      seen.add(l.numeroControlePNCP);
-      return true;
-    });
   }
 
-  // Filtro client-side por cidade (nome) — fallback se codigoIbge não funcionou
+  // Deduplicate by numeroControlePNCP
+  const seen = new Set<string>();
+  data = data.filter(l => {
+    if (seen.has(l.numeroControlePNCP)) return false;
+    seen.add(l.numeroControlePNCP);
+    return true;
+  });
+
+  // Client-side filter by city name (fallback when codigoIbge não foi usado)
   if (municipio && !codigoIbge) {
     const m = municipio.toLowerCase();
     data = data.filter((l: any) =>
@@ -127,7 +166,7 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Filtro client-side por busca/objeto
+  // Client-side keyword filter (objeto + órgão)
   if (busca) {
     const bl = busca.toLowerCase();
     data = data.filter((l: any) =>
@@ -136,10 +175,10 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Ordena por data de abertura mais recente primeiro
+  // Order by most recent first (publication > abertura fallback)
   data.sort((a: any, b: any) => {
-    const da = new Date(a.dataAberturaProposta || a.dataPublicacaoPncp || 0).getTime();
-    const db = new Date(b.dataAberturaProposta || b.dataPublicacaoPncp || 0).getTime();
+    const da = new Date(a.dataPublicacaoPncp || a.dataAberturaProposta || 0).getTime();
+    const db = new Date(b.dataPublicacaoPncp || b.dataAberturaProposta || 0).getTime();
     return db - da;
   });
 
@@ -148,5 +187,6 @@ export async function GET(req: NextRequest) {
     totalRegistros: data.length,
     totalPaginas: 1,
     paginasRestantes: false,
+    fetchedAt: new Date().toISOString(),
   });
 }
