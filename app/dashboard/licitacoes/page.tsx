@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
 import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
@@ -278,6 +278,20 @@ export default function LicitacoesPage() {
     await fetchFromAPI(queryString, cacheParams, 1, true);
     revalidatingRef.current = false;
     setRevalidating(false);
+  }
+
+  /** Force refresh: ignora o cache e força nova busca no PNCP */
+  async function refreshSearch() {
+    setApiError('');
+    setLoading(true);
+    setAllLicitacoes([]);
+    setIsStale(false);
+    setCacheTs(null);
+    const params = buildParams();
+    const cacheParams: Record<string, string> = {};
+    params.forEach((v, k) => { cacheParams[k] = v; });
+    await fetchFromAPI(params.toString(), cacheParams, 1, false);
+    setLoading(false);
   }
 
   async function fetchLicitacoes(page = 1) {
@@ -699,15 +713,39 @@ export default function LicitacoesPage() {
                 </span>
               </div>
             )}
-            {/* Result count + sort buttons */}
+            {/* Result count + refresh + sort buttons */}
             <div
               className="flex items-center justify-between flex-wrap gap-2"
               style={{ marginBottom: '12px' }}
             >
-              <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
-                {totalFiltered.toLocaleString('pt-BR')} resultado(s)
-                {totalClientPages > 1 && ` — Página ${safeClientPage} de ${totalClientPages}`}
-              </span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
+                  {totalFiltered.toLocaleString('pt-BR')} resultado(s)
+                  {totalClientPages > 1 && ` — Página ${safeClientPage} de ${totalClientPages}`}
+                </span>
+                <button
+                  onClick={refreshSearch}
+                  disabled={loading || revalidating}
+                  title="Atualizar resultados do PNCP (ignora cache)"
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '6px',
+                    height: '30px', padding: '0 12px',
+                    borderRadius: '6px',
+                    border: '1px solid #D3D3D3',
+                    backgroundColor: '#fff',
+                    color: '#262E3A',
+                    fontSize: '12.5px', fontWeight: 600,
+                    cursor: (loading || revalidating) ? 'wait' : 'pointer',
+                    transition: 'all 0.15s',
+                    opacity: (loading || revalidating) ? 0.7 : 1,
+                  }}
+                  onMouseEnter={e => { if (!loading && !revalidating) { (e.currentTarget as HTMLElement).style.backgroundColor = '#0a1175'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#0a1175'; } }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; (e.currentTarget as HTMLElement).style.color = '#262E3A'; (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3'; }}
+                >
+                  <RefreshCw className={`h-3.5 w-3.5 ${(loading || revalidating) ? 'animate-spin' : ''}`} />
+                  {revalidating ? 'Atualizando...' : loading ? 'Buscando...' : 'Atualizar'}
+                </button>
+              </div>
 
               {/* Sort pills */}
               <div className="flex items-center gap-1.5">
