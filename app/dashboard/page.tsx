@@ -9,83 +9,32 @@ import Link from 'next/link';
 import sql from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
+import { fetchOportunidades, parseRegion } from '@/lib/oportunidades';
 
 // ── Data fetches ──────────────────────────────────────────────────────────────
 
 /**
- * Fetch user's latest oportunidades — applies keyword + region filtering
- * against PNCP results from the last 30 days. Lightweight version of the
- * /api/oportunidades/buscar endpoint optimized for dashboard preview.
+ * Fetch user's latest oportunidades using the SAME logic as
+ * /api/oportunidades/buscar — same date window (90d), same modalidades,
+ * same dedupe + filter pipeline. Only differences for the dashboard preview:
+ *   - cached for 5 min (revalidate: 300) to avoid hammering PNCP on every nav
+ *   - limited to top 5 newest matches
  */
 async function getUltimasOportunidades(keywords: string[], region: string): Promise<Licitacao[]> {
   if (keywords.length === 0) return [];
 
-  // Parse region: "" | "SP" | "SP:Campinas"
-  let uf = '', cidade = '';
-  if (region) {
-    if (region.includes(':')) {
-      const idx = region.indexOf(':');
-      uf = region.slice(0, idx); cidade = region.slice(idx + 1);
-    } else {
-      uf = region;
+  const { uf, cidade } = parseRegion(region);
+
+  const result = await fetchOportunidades(
+    keywords,
+    { uf, cidade },
+    {
+      cache: { revalidate: 300 }, // 5 min cache for dashboard preview
+      limit: 5,
     }
-  }
+  );
 
-  const today = new Date();
-  const monthAgo = new Date(); monthAgo.setDate(today.getDate() - 30);
-  const fmt = (d: Date) => d.toISOString().split('T')[0].replace(/-/g, '');
-
-  // Fetch top modalidades in parallel (Pregão + Dispensa cover ~80% of volume)
-  const modalidades = ['7', '8', '5'];
-  const fetches = modalidades.map(mod => {
-    const params = new URLSearchParams({
-      dataInicial: fmt(monthAgo),
-      dataFinal: fmt(today),
-      pagina: '1',
-      tamanhoPagina: '50',
-      codigoModalidadeContratacao: mod,
-    });
-    if (uf) params.set('uf', uf);
-    return fetch(`https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao?${params}`, {
-      headers: { Accept: 'application/json' },
-      next: { revalidate: 300 }, // 5 min — keep dashboard hero fresh
-    })
-      .then(r => r.ok ? r.json() : { data: [] })
-      .then(j => j.data || [])
-      .catch(() => []);
-  });
-
-  const results = await Promise.all(fetches);
-  let merged: any[] = results.flat();
-
-  // Dedupe
-  const seen = new Set<string>();
-  merged = merged.filter(l => {
-    if (seen.has(l.numeroControlePNCP)) return false;
-    seen.add(l.numeroControlePNCP); return true;
-  });
-
-  // Filter by keywords
-  const kws = keywords.map(k => k.toLowerCase().trim());
-  merged = merged.filter(l => {
-    const obj = (l.objetoCompra || '').toLowerCase();
-    return kws.some(kw => obj.includes(kw));
-  });
-
-  // City filter
-  if (cidade) {
-    const c = cidade.toLowerCase();
-    merged = merged.filter(l => l.unidadeOrgao?.municipioNome?.toLowerCase().includes(c));
-  }
-
-  // Sort by publication date desc, top 5
-  merged.sort((a, b) => {
-    const da = new Date(a.dataPublicacaoPncp || 0).getTime();
-    const db = new Date(b.dataPublicacaoPncp || 0).getTime();
-    return db - da;
-  });
-
-  return merged.slice(0, 5);
+  return result.data as Licitacao[];
 }
 
 async function getStats(userId: string) {
