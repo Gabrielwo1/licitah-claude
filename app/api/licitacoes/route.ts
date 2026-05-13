@@ -129,6 +129,7 @@ export async function GET(req: NextRequest) {
   const busca = searchParams.get('busca') || '';
   const modalidadeParam = searchParams.get('modalidade') || '';
 
+  // Default window: últimos 3 meses (até hoje) quando o usuário não filtra data
   const rawInicial = searchParams.get('dataInicial') || threeMonthsAgo();
   const rawFinal   = searchParams.get('dataFinal')   || todayStr();
   const dataInicial = toAPIDate(rawInicial);
@@ -166,13 +167,18 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  // Client-side keyword filter (objeto + órgão)
+  // Keyword filter: objetoCompra + informacaoComplementar + órgão
+  // (alinhado com lib/oportunidades para que termos como "livros" batam em mais editais)
   if (busca) {
     const bl = busca.toLowerCase();
-    data = data.filter((l: any) =>
-      l.objetoCompra?.toLowerCase().includes(bl) ||
-      l.orgaoEntidade?.razaoSocial?.toLowerCase().includes(bl)
-    );
+    data = data.filter((l: any) => {
+      const haystack = [
+        l.objetoCompra,
+        l.informacaoComplementar,
+        l.orgaoEntidade?.razaoSocial,
+      ].filter(Boolean).join(' ').toLowerCase();
+      return haystack.includes(bl);
+    });
   }
 
   // Order by most recent first (publication > abertura fallback)
