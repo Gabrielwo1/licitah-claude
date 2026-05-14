@@ -7,7 +7,7 @@
   "crons": [
     {
       "path": "/api/cron/sync-pncp",
-      "schedule": "0 3,9,15,21 * * *"
+      "schedule": "0 6 * * *"
     }
   ]
 }
