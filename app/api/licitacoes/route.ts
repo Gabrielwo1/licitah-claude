@@ -1,55 +1,24 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
+import sql from '@/lib/db';
 
-export const maxDuration = 60;
+export const maxDuration = 30;
 
 const PNCP_API = 'https://pncp.gov.br/api/consulta/v1/contratacoes/publicacao';
 const PNCP_PAGE_SIZE = 50;
 
 /**
- * PNCP returns ASC by publication date — page 1 = oldest, last page = newest.
- * Our fetch strategy fetches the LAST N pages of each modalidade (the newest).
+ * Buscar Licitações — backed by Postgres cache.
  *
- * Volume reference (90-day national window, measured 2026-05):
- *   mod 8 (Dispensa)            ~187k records  / 3.750 pages
- *   mod 6 (Pregão Eletrônico)   ~94k records   / 1.880 pages
- *   mod 9 (Inexigibilidade)     ~71k records   / 1.430 pages
- *   mod 12 (Credenciamento)     ~6k records    / 130 pages
- *   mod 7 (Pregão Presencial)   ~few k         / ~100 pages
- *   mod 5, 4 (Concorrência)     ~few k each
- *   mod 1, 13, 14, 15, 11, 10   low volume
- *   mod 3 (Concurso)            ~50            / 1 page
- *   mod 2 (Diálogo Competitivo) ~1             / 1 page
+ * Reads from licitacoes_pncp_cache (populated by /api/cron/sync-pncp).
+ * Uses tsvector full-text search for the keyword (`busca` param), so terms
+ * stem in PT-BR (livro = livros) and indexes give big speedup over JSONB
+ * scans.
  *
- * Coverage = pages * 50 = max records the user can search across per modalidade.
- * We fetch in parallel; modern fetch + Promise.allSettled handles the load fine
- * within the 60s Vercel function limit.
+ * Falls back to a live PNCP fetch only when the cache is completely empty
+ * (i.e. day 1 before the first sync runs).
  */
-const MODALIDADES_COVERAGE: { mod: string; pages: number; label: string }[] = [
-  { mod: '8',  pages: 40, label: 'Dispensa'             }, // 2000 records
-  { mod: '6',  pages: 30, label: 'Pregão Eletrônico'    }, // 1500 records
-  { mod: '9',  pages: 20, label: 'Inexigibilidade'      }, // 1000 records
-  { mod: '7',  pages: 10, label: 'Pregão Presencial'    }, //  500 records
-  { mod: '5',  pages: 8,  label: 'Concorrência Pres.'   }, //  400 records
-  { mod: '4',  pages: 8,  label: 'Concorrência Eletr.'  }, //  400 records
-  { mod: '12', pages: 6,  label: 'Credenciamento'       }, //  300 records
-  { mod: '1',  pages: 3,  label: 'Leilão Eletrônico'    }, //  150 records
-  { mod: '13', pages: 2,  label: 'Leilão Presencial'    }, //  100 records
-  { mod: '14', pages: 2,  label: 'Manifestação Interesse' }, // 100 records
-  { mod: '15', pages: 2,  label: 'mod 15'               }, //  100 records
-  { mod: '11', pages: 2,  label: 'mod 11'               }, //  100 records
-  { mod: '10', pages: 2,  label: 'mod 10'               }, //  100 records
-  { mod: '3',  pages: 1,  label: 'Concurso'             }, //   50 records
-  { mod: '2',  pages: 1,  label: 'Diálogo Competitivo'  }, //   50 records
-];
-// Total ceiling: ~6850 records dos mais recentes em 3 meses.
-
-const SPECIFIC_MOD_PAGES = 50; // 2500 records quando o usuário escolhe uma modalidade
-
-function toAPIDate(dateStr: string): string {
-  return dateStr.replace(/-/g, '');
-}
 
 function threeMonthsAgo(): string {
   const d = new Date();
@@ -61,166 +30,203 @@ function todayStr(): string {
   return new Date().toISOString().split('T')[0];
 }
 
-async function fetchPage(
-  modalidade: string,
-  dataInicial: string,
-  dataFinal: string,
-  pagina: number,
-  uf: string,
-  codigoIbge: string,
-  timeoutMs = 18000
-): Promise<{ data: any[]; totalPages: number }> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
+async function fetchLivePncpFallback(opts: {
+  modalidade: string; dataInicial: string; dataFinal: string;
+  uf: string; codigoIbge: string;
+}): Promise<any[]> {
+  const MODALIDADES = opts.modalidade && opts.modalidade !== 'all'
+    ? [opts.modalidade]
+    : ['8', '6', '9', '7'];
 
-  const params = new URLSearchParams({
-    dataInicial,
-    dataFinal,
-    pagina: String(pagina),
-    tamanhoPagina: String(PNCP_PAGE_SIZE),
-    codigoModalidadeContratacao: modalidade,
-  });
-  if (uf) params.set('uf', uf);
-  if (codigoIbge) params.set('codigoMunicipioIbge', codigoIbge);
+  const dataInicial = opts.dataInicial.replace(/-/g, '');
+  const dataFinal   = opts.dataFinal.replace(/-/g, '');
 
-  try {
-    const res = await fetch(`${PNCP_API}?${params.toString()}`, {
-      headers: { Accept: 'application/json' },
-      signal: controller.signal,
-      cache: 'no-store',
-    });
-    clearTimeout(timer);
-    if (!res.ok) return { data: [], totalPages: 0 };
-    const json = await res.json();
-    const totalPages = json.totalPaginas ?? Math.ceil((json.totalRegistros ?? 0) / PNCP_PAGE_SIZE);
-    return { data: json.data || [], totalPages };
-  } catch {
-    clearTimeout(timer);
-    return { data: [], totalPages: 0 };
-  }
-}
-
-/** Fetch the most recent N pages for a modalidade. */
-async function fetchMostRecentPages(
-  modalidade: string,
-  dataInicial: string,
-  dataFinal: string,
-  maxPages: number,
-  uf: string,
-  codigoIbge: string
-): Promise<any[]> {
-  // Probe page 1 to get totalPages
-  const probe = await fetchPage(modalidade, dataInicial, dataFinal, 1, uf, codigoIbge);
-  if (probe.totalPages === 0 || probe.data.length === 0) return [];
-  if (probe.totalPages <= maxPages) {
-    // Few enough pages — fetch all (page 1 already in hand)
-    if (probe.totalPages === 1) return probe.data;
-    const rest = await Promise.allSettled(
-      Array.from({ length: probe.totalPages - 1 }, (_, i) =>
-        fetchPage(modalidade, dataInicial, dataFinal, i + 2, uf, codigoIbge)
-      )
-    );
-    const all = [...probe.data];
-    rest.forEach(r => { if (r.status === 'fulfilled') all.push(...r.value.data); });
-    return all;
-  }
-  // Total > maxPages → fetch the last maxPages (newest records)
-  const start = probe.totalPages - maxPages + 1;
-  const end   = probe.totalPages;
-  const pages: number[] = [];
-  for (let p = end; p >= start; p--) pages.push(p);
-
-  const results = await Promise.allSettled(
-    pages.map(p => fetchPage(modalidade, dataInicial, dataFinal, p, uf, codigoIbge))
+  const fetches = MODALIDADES.flatMap(mod =>
+    [1, 2].map(async pag => {
+      try {
+        const params = new URLSearchParams({
+          dataInicial, dataFinal,
+          pagina: String(pag),
+          tamanhoPagina: String(PNCP_PAGE_SIZE),
+          codigoModalidadeContratacao: mod,
+        });
+        if (opts.uf) params.set('uf', opts.uf);
+        if (opts.codigoIbge) params.set('codigoMunicipioIbge', opts.codigoIbge);
+        const ctl = new AbortController();
+        const t = setTimeout(() => ctl.abort(), 12000);
+        const res = await fetch(`${PNCP_API}?${params}`, {
+          headers: { Accept: 'application/json' },
+          signal: ctl.signal,
+          cache: 'no-store',
+        });
+        clearTimeout(t);
+        if (!res.ok) return [] as any[];
+        const json = await res.json();
+        return (json.data || []) as any[];
+      } catch { return [] as any[]; }
+    })
   );
+  const results = await Promise.allSettled(fetches);
   const all: any[] = [];
-  results.forEach(r => { if (r.status === 'fulfilled') all.push(...r.value.data); });
-  return all;
+  results.forEach(r => { if (r.status === 'fulfilled') all.push(...r.value); });
+  const seen = new Set<string>();
+  return all.filter(l => {
+    if (!l?.numeroControlePNCP || seen.has(l.numeroControlePNCP)) return false;
+    seen.add(l.numeroControlePNCP); return true;
+  });
 }
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
   if (!session) return NextResponse.json({ error: 'Não autorizado' }, { status: 401 });
 
-  const { searchParams } = new URL(req.url);
-  const uf              = searchParams.get('uf') || '';
-  const municipio       = searchParams.get('municipio') || '';
-  const codigoIbge      = searchParams.get('codigoIbge') || '';
-  const busca           = searchParams.get('busca') || '';
-  const modalidadeParam = searchParams.get('modalidade') || '';
-
-  // Default window: últimos 3 meses (até hoje) quando o usuário não filtra data
-  const rawInicial = searchParams.get('dataInicial') || threeMonthsAgo();
-  const rawFinal   = searchParams.get('dataFinal')   || todayStr();
-  const dataInicial = toAPIDate(rawInicial);
-  const dataFinal   = toAPIDate(rawFinal);
+  const sp = req.nextUrl.searchParams;
+  const uf            = (sp.get('uf')         || '').toUpperCase();
+  const municipio     = sp.get('municipio')   || '';
+  const codigoIbge    = sp.get('codigoIbge')  || '';
+  const busca         = (sp.get('busca')      || '').trim();
+  const modalidade    = sp.get('modalidade')  || '';
+  const dataInicialIn = sp.get('dataInicial') || threeMonthsAgo();
+  const dataFinalIn   = sp.get('dataFinal')   || todayStr();
+  const limitRaw      = Number(sp.get('limit')) || 500;
+  const limit         = Math.min(Math.max(limitRaw, 1), 2000);
+  const sort          = (sp.get('sort') || (busca ? 'relevance' : 'recente')).toLowerCase();
 
   const startedAt = Date.now();
-  let data: any[] = [];
 
-  if (modalidadeParam && modalidadeParam !== 'all') {
-    // Modalidade específica — cobertura mais profunda (50 páginas = 2.500 records)
-    data = await fetchMostRecentPages(modalidadeParam, dataInicial, dataFinal, SPECIFIC_MOD_PAGES, uf, codigoIbge);
-  } else {
-    // Todas as modalidades — em paralelo, cada uma com sua cobertura ajustada por volume
-    const fetches = MODALIDADES_COVERAGE.map(({ mod, pages }) =>
-      fetchMostRecentPages(mod, dataInicial, dataFinal, pages, uf, codigoIbge)
+  // Modalidade as number-or-null for SQL parameterization
+  const modalidadeId: number | null = modalidade && modalidade !== 'all'
+    ? parseInt(modalidade, 10)
+    : null;
+
+  // ── DB query ──────────────────────────────────────────────────────────────
+  // Single tagged-template SQL with conditional filters expressed in WHERE
+  // ($param = '' OR col = $param) pattern. PG short-circuits the AND so it's
+  // efficient. Sort is always data_publicacao DESC at the DB level; if the
+  // user asked for a different sort we re-order in JS after.
+
+  let rows: any[] = [];
+  try {
+    if (busca && sort === 'relevance') {
+      // FTS with relevance ranking
+      rows = await sql`
+        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+        FROM licitacoes_pncp_cache
+        WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+          AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+          AND (${uf}::text = '' OR uf = ${uf})
+          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        ORDER BY
+          ts_rank(search_vector, plainto_tsquery('portuguese', ${busca})) DESC,
+          data_publicacao DESC NULLS LAST
+        LIMIT ${limit}
+      `;
+    } else if (busca) {
+      // FTS but sort by date (or value, handled in JS post-sort)
+      rows = await sql`
+        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+        FROM licitacoes_pncp_cache
+        WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+          AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+          AND (${uf}::text = '' OR uf = ${uf})
+          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        ORDER BY data_publicacao DESC NULLS LAST
+        LIMIT ${limit}
+      `;
+    } else {
+      // No keyword — straight by date, scoped by filters
+      rows = await sql`
+        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+        FROM licitacoes_pncp_cache
+        WHERE (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+          AND (${uf}::text = '' OR uf = ${uf})
+          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        ORDER BY data_publicacao DESC NULLS LAST
+        LIMIT ${limit}
+      `;
+    }
+  } catch (e: any) {
+    return NextResponse.json(
+      { error: 'Erro no banco de dados.', detail: String(e?.message || e) },
+      { status: 500 }
     );
-    const results = await Promise.allSettled(fetches);
-    results.forEach(r => {
-      if (r.status === 'fulfilled') data.push(...r.value);
-    });
   }
 
-  // Dedupe by numeroControlePNCP
-  const seen = new Set<string>();
-  data = data.filter(l => {
-    if (!l?.numeroControlePNCP || seen.has(l.numeroControlePNCP)) return false;
-    seen.add(l.numeroControlePNCP);
-    return true;
-  });
+  // ── Empty cache fallback ──────────────────────────────────────────────────
+  if (rows.length === 0) {
+    try {
+      const countRows = await sql`SELECT COUNT(*)::int AS c FROM licitacoes_pncp_cache`;
+      const total = Number(countRows[0]?.c || 0);
+      if (total === 0) {
+        const liveData = await fetchLivePncpFallback({
+          modalidade, dataInicial: dataInicialIn, dataFinal: dataFinalIn,
+          uf, codigoIbge,
+        });
+        // Apply local keyword filter on the fallback
+        let filtered = liveData;
+        if (busca) {
+          const bl = busca.toLowerCase();
+          filtered = liveData.filter((l: any) => {
+            const hay = [
+              l.objetoCompra, l.informacaoComplementar,
+              l.orgaoEntidade?.razaoSocial,
+            ].filter(Boolean).join(' ').toLowerCase();
+            return hay.includes(bl);
+          });
+        }
+        return NextResponse.json({
+          data: filtered,
+          totalRegistros: filtered.length,
+          totalPaginas: 1,
+          paginasRestantes: false,
+          meta: {
+            source: 'pncp-live-fallback',
+            warning: 'Cache vazio — buscando direto no PNCP. Aguarde a primeira sincronização.',
+            elapsedMs: Date.now() - startedAt,
+          },
+        });
+      }
+    } catch { /* ignore — proceed with empty */ }
+  }
 
-  const totalFetched = data.length;
-
-  // City filter (fallback when codigoIbge wasn't used)
-  if (municipio && !codigoIbge) {
-    const m = municipio.toLowerCase();
-    data = data.filter((l: any) =>
-      l.unidadeOrgao?.municipioNome?.toLowerCase().includes(m)
+  // ── Apply non-date sort in JS (DB already sorted by date) ─────────────────
+  let data = rows.map(r => r.dados);
+  if (sort === 'maior') {
+    data.sort((a: any, b: any) =>
+      (Number(b.valorTotalEstimado) || 0) - (Number(a.valorTotalEstimado) || 0)
     );
-  }
-
-  // Keyword filter: objeto + informacaoComplementar + órgão
-  if (busca) {
-    const bl = busca.toLowerCase();
-    data = data.filter((l: any) => {
-      const haystack = [
-        l.objetoCompra,
-        l.informacaoComplementar,
-        l.orgaoEntidade?.razaoSocial,
-      ].filter(Boolean).join(' ').toLowerCase();
-      return haystack.includes(bl);
+  } else if (sort === 'menor') {
+    data.sort((a: any, b: any) => {
+      const va = Number(a.valorTotalEstimado) || Infinity;
+      const vb = Number(b.valorTotalEstimado) || Infinity;
+      return va - vb;
     });
+  } else if (sort === 'antiga') {
+    data.reverse(); // already sorted DESC by data, so reverse for ASC
   }
 
-  // Order newest first (publication > abertura fallback)
-  data.sort((a: any, b: any) => {
-    const da = new Date(a.dataPublicacaoPncp || a.dataAberturaProposta || 0).getTime();
-    const db = new Date(b.dataPublicacaoPncp || b.dataAberturaProposta || 0).getTime();
-    return db - da;
-  });
+  // ── Last sync timestamp (cheap, MAX over indexed column) ──────────────────
+  let lastSync: string | null = null;
+  try {
+    const r = await sql`SELECT MAX(sincronizado_em) AS ts FROM licitacoes_pncp_cache`;
+    lastSync = r[0]?.ts ? new Date(r[0].ts).toISOString() : null;
+  } catch { /* ignore */ }
 
   return NextResponse.json({
     data,
     totalRegistros: data.length,
     totalPaginas: 1,
     paginasRestantes: false,
-    debug: {
-      totalFetchedFromPNCP: totalFetched,
-      afterFilters: data.length,
-      windowDays: Math.round((Date.parse(rawFinal) - Date.parse(rawInicial)) / 86400000),
+    meta: {
+      source: 'postgres-cache',
+      lastSync,
       elapsedMs: Date.now() - startedAt,
     },
-    fetchedAt: new Date().toISOString(),
   });
 }
