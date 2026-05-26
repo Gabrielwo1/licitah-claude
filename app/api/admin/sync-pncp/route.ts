@@ -46,7 +46,6 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok:             true,
-      modalidade:     mod,
       modalidadeNome: modalidade.label,
       ...result,
     });
