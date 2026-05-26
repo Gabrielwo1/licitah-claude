@@ -5,6 +5,7 @@ import sql from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, CreditCard, ShieldCheck } from 'lucide-react';
 import { AdminUsersTable } from './AdminUsersTable';
+import { SyncPanel } from './SyncPanel';
 
 async function getAdminStats() {
   const [usersCount, empresasCount, assCount] = await Promise.all([
@@ -84,6 +85,9 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* PNCP Cache Sync */}
+      <SyncPanel />
 
       {/* Users table */}
       <Card>

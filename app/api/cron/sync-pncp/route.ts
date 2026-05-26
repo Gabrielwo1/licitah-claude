@@ -2,30 +2,34 @@ import { NextRequest, NextResponse } from 'next/server';
 import {
   ALL_MODALIDADES, syncModalidade, logSyncStart, logSyncEnd,
 } from '@/lib/pncp-sync';
+import sql from '@/lib/db';
 
 export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 /**
- * Daily incremental sync triggered by Vercel Cron.
+ * Daily sync triggered by Vercel Cron (06:00 and 18:00 BRT).
  *
- * Strategy:
- *  - Use the /atualizacao endpoint to grab records that changed in the last
- *    36 hours (overlap protects against missed records if a previous cron
- *    run failed).
- *  - Loop through all modalidades sequentially, with a hard wall-clock
- *    deadline a few seconds before Vercel kills us.
- *  - Each modalidade is logged to licitacoes_pncp_sync_log for debugging.
+ * Mode is selected automatically based on cache size:
+ *   < 5 000 records  → BOOTSTRAP: sync 90 days for top-priority modalidades
+ *   < 30 000 records → FILL: sync 90 days for remaining modalidades (picks up
+ *                      where bootstrap left off by priority order)
+ *   ≥ 30 000 records → INCREMENTAL: sync last 2 days for all modalidades
  *
- * Auth: Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`. We accept
- * that OR a manual call with the same header so we can trigger it by hand.
+ * This means the cache populates itself over 1-2 days with no manual
+ * intervention — each cron run advances the fill until the full 90-day
+ * window is covered.
  */
 
-const HARD_BUDGET_MS = 55_000;       // leave 5s headroom before maxDuration=60
-const INCREMENTAL_DAYS = 2;          // overlap window for daily diffs
+const HARD_BUDGET_MS  = 55_000;
+const INCREMENTAL_DAYS = 2;
+const BOOTSTRAP_DAYS   = 90;
+
+// Priority-1 only (highest volume) — used for the very first bootstrap pass
+const PRIORITY1 = ALL_MODALIDADES.filter(m => m.priority === 1);
 
 export async function GET(req: NextRequest) {
-  // Auth
+  // Auth: Vercel Cron sends Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers.get('authorization') || '';
   const provided   = authHeader.replace(/^Bearer\s+/i, '').trim();
   const expected   = process.env.CRON_SECRET || '';
@@ -33,15 +37,47 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
 
-  const startedAt = Date.now();
+  const startedAt  = Date.now();
   const deadlineAt = startedAt + HARD_BUDGET_MS;
 
-  const logId = await logSyncStart(null, 'incremental-daily');
+  // ── Decide mode based on cache volume ──────────────────────────────────────
+  let cacheCount = 0;
+  try {
+    const r = await sql`SELECT COUNT(*)::int AS c FROM licitacoes_pncp_cache`;
+    cacheCount = Number(r[0]?.c || 0);
+  } catch { /* proceed with 0 */ }
+
+  let mode: 'bootstrap' | 'fill' | 'incremental';
+  let targets: typeof ALL_MODALIDADES;
+  let days: number;
+  let incremental: boolean;
+
+  if (cacheCount < 5_000) {
+    // First pass: get the most important modalidades (highest volume) 90 days back
+    mode        = 'bootstrap';
+    targets     = PRIORITY1;
+    days        = BOOTSTRAP_DAYS;
+    incremental = false;
+  } else if (cacheCount < 30_000) {
+    // Fill pass: advance through all modalidades, sorted by priority, until deadline
+    mode        = 'fill';
+    targets     = ALL_MODALIDADES;
+    days        = BOOTSTRAP_DAYS;
+    incremental = false;
+  } else {
+    // Steady-state: daily incremental for all modalidades
+    mode        = 'incremental';
+    targets     = ALL_MODALIDADES;
+    days        = INCREMENTAL_DAYS;
+    incremental = true;
+  }
+
+  const logId = await logSyncStart(null, mode);
 
   const perModalidade: any[] = [];
   let totalInserted = 0, totalUpdated = 0, totalErrors = 0;
 
-  for (const m of ALL_MODALIDADES) {
+  for (const m of targets) {
     if (Date.now() > deadlineAt) {
       perModalidade.push({ modalidade: m.mod, skipped: 'deadline' });
       continue;
@@ -49,10 +85,10 @@ export async function GET(req: NextRequest) {
     try {
       const result = await syncModalidade({
         modalidade:  m.mod,
-        days:        INCREMENTAL_DAYS,
-        incremental: true,
+        days,
+        incremental,
         deadlineAt,
-        concurrency: 6,
+        concurrency: 8,
       });
       perModalidade.push(result);
       totalInserted += result.inserted;
@@ -71,6 +107,8 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     ok: true,
+    mode,
+    cacheCount,
     durationMs: Date.now() - startedAt,
     totalInserted, totalUpdated, totalErrors,
     perModalidade,
