@@ -88,8 +88,10 @@ export async function GET(req: NextRequest) {
   const modalidade    = sp.get('modalidade')  || '';
   const dataInicialIn = sp.get('dataInicial') || threeMonthsAgo();
   const dataFinalIn   = sp.get('dataFinal')   || todayStr();
-  const limitRaw      = Number(sp.get('limit')) || 500;
-  const limit         = Math.min(Math.max(limitRaw, 1), 2000);
+  const limitRaw      = Number(sp.get('limit')) || 5000;
+  const limit         = Math.min(Math.max(limitRaw, 1), 10000);
+  const offsetRaw     = Number(sp.get('offset')) || 0;
+  const offset        = Math.max(offsetRaw, 0);
   const sort          = (sp.get('sort') || (busca ? 'relevance' : 'recente')).toLowerCase();
 
   const startedAt = Date.now();
@@ -106,50 +108,89 @@ export async function GET(req: NextRequest) {
   // user asked for a different sort we re-order in JS after.
 
   let rows: any[] = [];
+  let dbTotal = 0;
   try {
     if (busca && sort === 'relevance') {
-      // FTS with relevance ranking
-      rows = await sql`
-        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
-        FROM licitacoes_pncp_cache
-        WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
-          AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
-          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
-          AND (${uf}::text = '' OR uf = ${uf})
-          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
-          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
-        ORDER BY
-          ts_rank(search_vector, plainto_tsquery('portuguese', ${busca})) DESC,
-          data_publicacao DESC NULLS LAST
-        LIMIT ${limit}
-      `;
+      const [dataRows, countRows] = await Promise.all([
+        sql`
+          SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+          FROM licitacoes_pncp_cache
+          WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+            AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+          ORDER BY
+            ts_rank(search_vector, plainto_tsquery('portuguese', ${busca})) DESC,
+            data_publicacao DESC NULLS LAST
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        sql`
+          SELECT COUNT(*)::int AS c
+          FROM licitacoes_pncp_cache
+          WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+            AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        `,
+      ]);
+      rows = dataRows;
+      dbTotal = Number(countRows[0]?.c || 0);
     } else if (busca) {
-      // FTS but sort by date (or value, handled in JS post-sort)
-      rows = await sql`
-        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
-        FROM licitacoes_pncp_cache
-        WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
-          AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
-          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
-          AND (${uf}::text = '' OR uf = ${uf})
-          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
-          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
-        ORDER BY data_publicacao DESC NULLS LAST
-        LIMIT ${limit}
-      `;
+      const [dataRows, countRows] = await Promise.all([
+        sql`
+          SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+          FROM licitacoes_pncp_cache
+          WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+            AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+          ORDER BY data_publicacao DESC NULLS LAST
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        sql`
+          SELECT COUNT(*)::int AS c
+          FROM licitacoes_pncp_cache
+          WHERE search_vector @@ plainto_tsquery('portuguese', ${busca})
+            AND (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        `,
+      ]);
+      rows = dataRows;
+      dbTotal = Number(countRows[0]?.c || 0);
     } else {
-      // No keyword — straight by date, scoped by filters
-      rows = await sql`
-        SELECT dados, valor_estimado, data_publicacao, sincronizado_em
-        FROM licitacoes_pncp_cache
-        WHERE (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
-          AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
-          AND (${uf}::text = '' OR uf = ${uf})
-          AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
-          AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
-        ORDER BY data_publicacao DESC NULLS LAST
-        LIMIT ${limit}
-      `;
+      const [dataRows, countRows] = await Promise.all([
+        sql`
+          SELECT dados, valor_estimado, data_publicacao, sincronizado_em
+          FROM licitacoes_pncp_cache
+          WHERE (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+          ORDER BY data_publicacao DESC NULLS LAST
+          LIMIT ${limit} OFFSET ${offset}
+        `,
+        sql`
+          SELECT COUNT(*)::int AS c
+          FROM licitacoes_pncp_cache
+          WHERE (data_publicacao IS NULL OR data_publicacao >= ${dataInicialIn}::date)
+            AND (data_publicacao IS NULL OR data_publicacao < (${dataFinalIn}::date + INTERVAL '1 day'))
+            AND (${uf}::text = '' OR uf = ${uf})
+            AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
+            AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+        `,
+      ]);
+      rows = dataRows;
+      dbTotal = Number(countRows[0]?.c || 0);
     }
   } catch (e: any) {
     return NextResponse.json(
@@ -220,9 +261,10 @@ export async function GET(req: NextRequest) {
 
   return NextResponse.json({
     data,
-    totalRegistros: data.length,
-    totalPaginas: 1,
-    paginasRestantes: false,
+    totalRegistros: dbTotal,
+    registrosRetornados: data.length,
+    offset,
+    paginasRestantes: offset + data.length < dbTotal,
     meta: {
       source: 'postgres-cache',
       lastSync,

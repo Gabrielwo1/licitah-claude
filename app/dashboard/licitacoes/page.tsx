@@ -122,10 +122,13 @@ export default function LicitacoesPage() {
 
   const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const [sortBy, setSortBy] = useState<'recente' | 'antiga' | 'maior' | 'menor'>('recente');
   const didAutoSearch = useRef(false);
   const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
   const [total, setTotal] = useState(0);
+  const [dbTotal, setDbTotal] = useState(0);
+  const [serverOffset, setServerOffset] = useState(0);
   const [totalPaginas, setTotalPaginas] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -218,7 +221,7 @@ export default function LicitacoesPage() {
   const safeClientPage = Math.min(clientPage, totalClientPages);
   const filtered = sorted.slice((safeClientPage - 1) * PAGE_SIZE, safeClientPage * PAGE_SIZE);
 
-  function buildParams() {
+  function buildParams(extraOffset = 0) {
     const params = new URLSearchParams();
     if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
     if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
@@ -229,6 +232,8 @@ export default function LicitacoesPage() {
     const termoBusca = [busca.trim(), ...oportunidadesSelecionadas].filter(Boolean).join(' ');
     if (termoBusca) params.set('busca', termoBusca);
     if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
+    params.set('limit', '5000');
+    if (extraOffset > 0) params.set('offset', String(extraOffset));
     return params;
   }
 
@@ -242,11 +247,10 @@ export default function LicitacoesPage() {
         return;
       }
       const data: any[] = json.data || [];
+      const returnedOffset: number = json.offset ?? 0;
       if (data.length > 0) {
         if (bg) {
-          // Merge aditivo: adiciona novas, mantém existentes
           mergeCache(cacheParams, data);
-          // Lê o cache atualizado para refletir no estado
           const updated = getCacheResult(cacheParams);
           if (updated.hit) setAllLicitacoes(updated.data);
           else setAllLicitacoes(data);
@@ -257,9 +261,13 @@ export default function LicitacoesPage() {
       } else if (!bg) {
         setAllLicitacoes([]);
       }
-      setTotal(json.totalRegistros || data.length);
+      // totalRegistros is now the real DB count, not just what was returned
+      const dbCount = json.totalRegistros ?? data.length;
+      setDbTotal(dbCount);
+      setTotal(dbCount);
+      setServerOffset(returnedOffset + data.length);
       setTotalPaginas(json.totalPaginas || 1);
-      setHasMore(json.paginasRestantes || false);
+      setHasMore(json.paginasRestantes ?? false);
       setIsStale(false);
       setCacheTs(Date.now());
       if (!bg) { setPagina(page); setSearched(true); }
@@ -268,6 +276,30 @@ export default function LicitacoesPage() {
         setApiError('Erro de conexão. Verifique sua internet e tente novamente.');
         setAllLicitacoes([]);
       }
+    }
+  }
+
+  async function loadMore() {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    try {
+      const params = buildParams(serverOffset);
+      const res = await fetch(`/api/licitacoes?${params.toString()}`);
+      const json = await res.json();
+      if (json.error || !json.data?.length) return;
+      const newData: any[] = json.data;
+      const returnedOffset: number = json.offset ?? serverOffset;
+      setAllLicitacoes((prev: Licitacao[]) => {
+        const seen = new Set(prev.map((l: Licitacao) => l.numeroControlePNCP));
+        const merged = [...prev, ...newData.filter((l: any) => !seen.has(l.numeroControlePNCP))];
+        return merged;
+      });
+      setServerOffset(returnedOffset + newData.length);
+      setHasMore(json.paginasRestantes ?? false);
+    } catch {
+      // silently fail load-more
+    } finally {
+      setLoadingMore(false);
     }
   }
 
@@ -280,14 +312,16 @@ export default function LicitacoesPage() {
     setRevalidating(false);
   }
 
-  /** Force refresh: ignora o cache e força nova busca no PNCP */
+  /** Force refresh: ignora o cache e força nova busca no banco */
   async function refreshSearch() {
     setApiError('');
     setLoading(true);
     setAllLicitacoes([]);
     setIsStale(false);
     setCacheTs(null);
-    const params = buildParams();
+    setServerOffset(0);
+    setDbTotal(0);
+    const params = buildParams(0);
     const cacheParams: Record<string, string> = {};
     params.forEach((v, k) => { cacheParams[k] = v; });
     await fetchFromAPI(params.toString(), cacheParams, 1, false);
@@ -296,7 +330,9 @@ export default function LicitacoesPage() {
 
   async function fetchLicitacoes(page = 1) {
     setApiError('');
-    const params = buildParams();
+    setServerOffset(0);
+    setDbTotal(0);
+    const params = buildParams(0);
     const cacheParams: Record<string, string> = {};
     params.forEach((v, k) => { cacheParams[k] = v; });
 
@@ -720,7 +756,10 @@ export default function LicitacoesPage() {
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
-                  {totalFiltered.toLocaleString('pt-BR')} resultado(s)
+                  {allLicitacoes.length < dbTotal && dbTotal > 0
+                    ? <>Exibindo <strong style={{ color: '#262E3A' }}>{allLicitacoes.length.toLocaleString('pt-BR')}</strong> de <strong style={{ color: '#262E3A' }}>{dbTotal.toLocaleString('pt-BR')}</strong> resultados</>
+                    : <>{totalFiltered.toLocaleString('pt-BR')} resultado(s)</>
+                  }
                   {totalClientPages > 1 && ` — Página ${safeClientPage} de ${totalClientPages}`}
                 </span>
                 <button
@@ -796,6 +835,38 @@ export default function LicitacoesPage() {
                 })}
               />
             ))}
+
+            {/* Load more from server */}
+            {hasMore && (
+              <div className="flex flex-col items-center gap-2 pt-4 pb-2">
+                <p style={{ fontSize: '13px', color: '#7B7B7B' }}>
+                  Exibindo {allLicitacoes.length.toLocaleString('pt-BR')} de {dbTotal.toLocaleString('pt-BR')} resultados no banco
+                </p>
+                <button
+                  onClick={loadMore}
+                  disabled={loadingMore}
+                  style={{
+                    display: 'inline-flex', alignItems: 'center', gap: '8px',
+                    height: '38px', padding: '0 24px',
+                    borderRadius: '8px',
+                    border: '1px solid #D3D3D3',
+                    backgroundColor: '#fff',
+                    color: '#262E3A',
+                    fontSize: '13px', fontWeight: 600,
+                    cursor: loadingMore ? 'wait' : 'pointer',
+                    transition: 'all 0.15s',
+                    opacity: loadingMore ? 0.7 : 1,
+                  }}
+                  onMouseEnter={e => { if (!loadingMore) { (e.currentTarget as HTMLElement).style.backgroundColor = '#0a1175'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#0a1175'; } }}
+                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; (e.currentTarget as HTMLElement).style.color = '#262E3A'; (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3'; }}
+                >
+                  {loadingMore
+                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Carregando mais...</>
+                    : <>Carregar mais {Math.min(5000, dbTotal - allLicitacoes.length).toLocaleString('pt-BR')} resultados</>
+                  }
+                </button>
+              </div>
+            )}
 
             {/* Client-side pagination */}
             {totalClientPages > 1 && (
