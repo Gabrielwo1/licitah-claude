@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react';
 import { ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
-import { todayISO, threeMonthsAgoISO } from '@/lib/utils';
 import { getCacheResult, getCacheTimestamp, setCache, mergeCache } from '@/lib/licitacoes-cache';
 
 const MODALIDADES = [
@@ -58,7 +57,6 @@ const ESFERAS = [
 ];
 
 const PAGE_SIZE = 15;
-const THREE_MONTHS_MS = 90 * 24 * 60 * 60 * 1000; // 90 dias em ms
 
 const fieldLabel: React.CSSProperties = {
   display: 'block',
@@ -183,22 +181,14 @@ export default function LicitacoesPage() {
   }, []);
 
   // ── Pipeline de exibição ──
-  const threeMonthsAgo = Date.now() - THREE_MONTHS_MS;
 
-  // 1. Filtro de 3 meses: remove licitações antigas, exceto gerenciadas
-  const withinWindow = allLicitacoes.filter((l) => {
-    const pub = new Date(l.dataPublicacaoPncp || l.dataAberturaProposta || 0).getTime();
-    if (pub >= threeMonthsAgo) return true;
-    return managedIds.has(l.numeroControlePNCP);
-  });
-
-  // 2. Filtro de situação
+  // 1. Filtro de situação (data já filtrada pela API)
   const afterSituacao = situacao
-    ? withinWindow.filter((l) => {
+    ? allLicitacoes.filter((l) => {
         const nome = l.situacaoCompraNome?.toLowerCase() || '';
         return nome.includes(situacao.toLowerCase());
       })
-    : withinWindow;
+    : allLicitacoes;
 
   // 3. Ordenação
   const sorted = [...afterSituacao].sort((a, b) => {
