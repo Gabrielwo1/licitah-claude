@@ -70,9 +70,25 @@ export function SyncPanel() {
       const res = await fetch('/api/admin/sync-pncp', {
         method:  'POST',
         headers: { 'Content-Type': 'application/json' },
-        body:    JSON.stringify({ mod, days: 90, concurrency: 8 }),
+        body:    JSON.stringify({ mod, days: 90, concurrency: 6 }),
       });
-      const json = await res.json();
+
+      // Vercel pode retornar HTML/texto quando a função ultrapassa 60s
+      const text = await res.text();
+      let json: any;
+      try {
+        json = JSON.parse(text);
+      } catch {
+        setModResults(prev => ({
+          ...prev,
+          [mod]: {
+            status: 'error',
+            error: 'Timeout (>60s) — clique Sync novamente para continuar de onde parou',
+          },
+        }));
+        return false;
+      }
+
       if (!res.ok || json.error) {
         setModResults(prev => ({ ...prev, [mod]: { status: 'error', error: json.error || 'Erro desconhecido' } }));
         return false;
@@ -248,7 +264,7 @@ export function SyncPanel() {
                     )}
                     {isDone && r.hitDeadline && (
                       <p style={{ fontSize: '11px', color: '#FF8C00', marginTop: '2px', paddingLeft: '22px' }}>
-                        Limite de tempo atingido — execute novamente para continuar
+                        ⚡ Limite de 60s atingido — clique Sync novamente para buscar as próximas páginas
                       </p>
                     )}
                   </td>
