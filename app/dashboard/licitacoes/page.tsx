@@ -1,10 +1,9 @@
 'use client';
 
 import { useState, useEffect, useRef } from 'react';
-import { ChevronLeft, ChevronRight, Loader2, AlertCircle, RefreshCw } from 'lucide-react';
+import { Loader2, AlertCircle, RefreshCw } from 'lucide-react';
 import { LicitacaoCard } from '@/components/licitacoes/LicitacaoCard';
 import { Licitacao } from '@/lib/types';
-import { getCacheResult, getCacheTimestamp, setCache, mergeCache } from '@/lib/licitacoes-cache';
 
 const MODALIDADES = [
   { value: '', label: 'Todas as modalidades' },
@@ -55,8 +54,6 @@ const ESFERAS = [
   { value: 'estadual', label: 'Estadual' },
   { value: 'municipal', label: 'Municipal' },
 ];
-
-const PAGE_SIZE = 15;
 
 const fieldLabel: React.CSSProperties = {
   display: 'block',
@@ -118,25 +115,19 @@ export default function LicitacoesPage() {
   const [concEdital, setConcEdital] = useState(false);
   const [oportunidadesSelecionadas, setOportunidadesSelecionadas] = useState<string[]>([]);
 
-  const [pagina, setPagina] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [loadingMore, setLoadingMore] = useState(false);
   const [sortBy, setSortBy] = useState<'recente' | 'antiga' | 'maior' | 'menor'>('recente');
   const didAutoSearch = useRef(false);
-  const [allLicitacoes, setAllLicitacoes] = useState<Licitacao[]>([]);
-  const [total, setTotal] = useState(0);
-  const [dbTotal, setDbTotal] = useState(0);
-  const [serverOffset, setServerOffset] = useState(0);
-  const [totalPaginas, setTotalPaginas] = useState(1);
-  const [hasMore, setHasMore] = useState(false);
+
+  // Server-side pagination state
+  const [licitacoes, setLicitacoes] = useState<Licitacao[]>([]);
+  const [serverPage, setServerPage] = useState(1);
+  const [totalPages, setTotalPages] = useState(1);
+  const [totalRegistros, setTotalRegistros] = useState(0);
+
   const [searched, setSearched] = useState(false);
   const [apiError, setApiError] = useState('');
-  const [isStale, setIsStale] = useState(false);
-  const [cacheTs, setCacheTs] = useState<number | null>(null);
-  const [revalidating, setRevalidating] = useState(false);
-  const revalidatingRef = useRef(false);
   const [managedIds, setManagedIds] = useState<Set<string>>(new Set());
-  const [clientPage, setClientPage] = useState(1);
   const [favoriteIds, setFavoriteIds] = useState<Set<string>>(new Set());
 
   // Carrega cidades do IBGE quando o estado muda
@@ -176,186 +167,71 @@ export default function LicitacoesPage() {
   useEffect(() => {
     if (didAutoSearch.current) return;
     didAutoSearch.current = true;
-    fetchLicitacoes(1);
+    fetchLicitacoes(1, 'recente');
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Pipeline de exibição ──
+  // Filtro de situação dentro da página atual (client-side)
+  const displayedLicitacoes = situacao
+    ? licitacoes.filter(l => (l.situacaoCompraNome?.toLowerCase() || '').includes(situacao.toLowerCase()))
+    : licitacoes;
 
-  // 1. Filtro de situação (data já filtrada pela API)
-  const afterSituacao = situacao
-    ? allLicitacoes.filter((l) => {
-        const nome = l.situacaoCompraNome?.toLowerCase() || '';
-        return nome.includes(situacao.toLowerCase());
-      })
-    : allLicitacoes;
-
-  // 3. Ordenação
-  const sorted = [...afterSituacao].sort((a, b) => {
-    if (sortBy === 'maior') return (b.valorTotalEstimado ?? -1) - (a.valorTotalEstimado ?? -1);
-    if (sortBy === 'menor') {
-      if (!a.valorTotalEstimado && !b.valorTotalEstimado) return 0;
-      if (!a.valorTotalEstimado) return 1;
-      if (!b.valorTotalEstimado) return -1;
-      return a.valorTotalEstimado - b.valorTotalEstimado;
-    }
-    const da = new Date(a.dataAberturaProposta || 0).getTime();
-    const db = new Date(b.dataAberturaProposta || 0).getTime();
-    if (sortBy === 'recente') return db - da;
-    return da - db;
-  });
-
-  // 4. Paginação client-side
-  const totalFiltered = sorted.length;
-  const totalClientPages = Math.max(1, Math.ceil(totalFiltered / PAGE_SIZE));
-  const safeClientPage = Math.min(clientPage, totalClientPages);
-  const filtered = sorted.slice((safeClientPage - 1) * PAGE_SIZE, safeClientPage * PAGE_SIZE);
-
-  function buildParams(extraOffset = 0) {
+  function buildParams(page: number, sort: string) {
     const params = new URLSearchParams();
     if (dataAberturaInicio) params.set('dataInicial', dataAberturaInicio);
-    if (dataAberturaFim) params.set('dataFinal', dataAberturaFim);
-    if (modalidade) params.set('modalidade', modalidade);
-    if (uf) params.set('uf', uf);
-    if (cidade) params.set('municipio', cidade);
-    if (codigoIbge) params.set('codigoIbge', codigoIbge);
+    if (dataAberturaFim)    params.set('dataFinal',   dataAberturaFim);
+    if (modalidade)         params.set('modalidade',  modalidade);
+    if (uf)                 params.set('uf',          uf);
+    if (cidade)             params.set('municipio',   cidade);
+    if (codigoIbge)         params.set('codigoIbge',  codigoIbge);
     const termoBusca = [busca.trim(), ...oportunidadesSelecionadas].filter(Boolean).join(' ');
-    if (termoBusca) params.set('busca', termoBusca);
-    if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
-    params.set('limit', '10000');
-    if (extraOffset > 0) params.set('offset', String(extraOffset));
+    if (termoBusca)         params.set('busca',       termoBusca);
+    if (codigoOrgao.trim()) params.set('cnpj',        codigoOrgao.trim());
+    params.set('page',     String(page));
+    params.set('pageSize', '100');
+    params.set('sort',     sort);
     return params;
   }
 
-  async function fetchFromAPI(queryString: string, cacheParams: Record<string, string>, page: number, bg = false) {
+  async function fetchLicitacoes(page = 1, sort = sortBy) {
+    setApiError('');
+    setLoading(true);
     try {
-      const res = await fetch(`/api/licitacoes?${queryString}`);
-      const json = await res.json();
-      if (json.error) {
-        if (!bg) setApiError('A API do governo está temporariamente indisponível. Tente novamente em alguns instantes.');
-        if (!bg) setAllLicitacoes([]);
-        return;
-      }
-      const data: any[] = json.data || [];
-      const returnedOffset: number = json.offset ?? 0;
-      if (data.length > 0) {
-        if (bg) {
-          mergeCache(cacheParams, data);
-          const updated = getCacheResult(cacheParams);
-          if (updated.hit) setAllLicitacoes(updated.data);
-          else setAllLicitacoes(data);
-        } else {
-          setCache(cacheParams, data);
-          setAllLicitacoes(data);
-        }
-      } else if (!bg) {
-        setAllLicitacoes([]);
-      }
-      // totalRegistros is now the real DB count, not just what was returned
-      const dbCount = json.totalRegistros ?? data.length;
-      setDbTotal(dbCount);
-      setTotal(dbCount);
-      setServerOffset(returnedOffset + data.length);
-      setTotalPaginas(json.totalPaginas || 1);
-      setHasMore(json.paginasRestantes ?? false);
-      setIsStale(false);
-      setCacheTs(Date.now());
-      if (!bg) { setPagina(page); setSearched(true); }
-    } catch {
-      if (!bg) {
-        setApiError('Erro de conexão. Verifique sua internet e tente novamente.');
-        setAllLicitacoes([]);
-      }
-    }
-  }
-
-  async function loadMore() {
-    if (loadingMore || !hasMore) return;
-    setLoadingMore(true);
-    try {
-      const params = buildParams(serverOffset);
+      const params = buildParams(page, sort);
       const res = await fetch(`/api/licitacoes?${params.toString()}`);
       const json = await res.json();
-      if (json.error || !json.data?.length) return;
-      const newData: any[] = json.data;
-      const returnedOffset: number = json.offset ?? serverOffset;
-      setAllLicitacoes((prev: Licitacao[]) => {
-        const seen = new Set(prev.map((l: Licitacao) => l.numeroControlePNCP));
-        const merged = [...prev, ...newData.filter((l: any) => !seen.has(l.numeroControlePNCP))];
-        return merged;
-      });
-      setServerOffset(returnedOffset + newData.length);
-      setHasMore(json.paginasRestantes ?? false);
-    } catch {
-      // silently fail load-more
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
-  async function revalidateInBackground(cacheParams: Record<string, string>, queryString: string) {
-    if (revalidatingRef.current) return;
-    revalidatingRef.current = true;
-    setRevalidating(true);
-    await fetchFromAPI(queryString, cacheParams, 1, true);
-    revalidatingRef.current = false;
-    setRevalidating(false);
-  }
-
-  /** Force refresh: ignora o cache e força nova busca no banco */
-  async function refreshSearch() {
-    setApiError('');
-    setLoading(true);
-    setAllLicitacoes([]);
-    setIsStale(false);
-    setCacheTs(null);
-    setServerOffset(0);
-    setDbTotal(0);
-    const params = buildParams(0);
-    const cacheParams: Record<string, string> = {};
-    params.forEach((v, k) => { cacheParams[k] = v; });
-    await fetchFromAPI(params.toString(), cacheParams, 1, false);
-    setLoading(false);
-  }
-
-  async function fetchLicitacoes(page = 1) {
-    setApiError('');
-    setServerOffset(0);
-    setDbTotal(0);
-    const params = buildParams(0);
-    const cacheParams: Record<string, string> = {};
-    params.forEach((v, k) => { cacheParams[k] = v; });
-
-    // ── Stale-while-revalidate: serve cache instantly ──
-    const cacheResult = getCacheResult(cacheParams);
-    if (cacheResult.hit) {
-      setAllLicitacoes(cacheResult.data);
-      setTotal(cacheResult.data.length);
-      setTotalPaginas(1);
-      setHasMore(false);
-      setPagina(page);
-      setSearched(true);
-      setLoading(false);
-      setIsStale(cacheResult.stale);
-      setCacheTs(getCacheTimestamp(cacheParams));
-      if (cacheResult.stale) {
-        revalidateInBackground(cacheParams, params.toString());
+      if (json.error) {
+        setApiError('A API do governo está temporariamente indisponível. Tente novamente em alguns instantes.');
+        setLicitacoes([]);
+        return;
       }
-      return;
+      setLicitacoes(json.data || []);
+      setServerPage(json.page ?? page);
+      setTotalPages(json.totalPages ?? 1);
+      setTotalRegistros(json.totalRegistros ?? 0);
+      setSearched(true);
+    } catch {
+      setApiError('Erro de conexão. Verifique sua internet e tente novamente.');
+      setLicitacoes([]);
+    } finally {
+      setLoading(false);
     }
-
-    // ── Cache miss → full fetch ──
-    setLoading(true);
-    await fetchFromAPI(params.toString(), cacheParams, page, false);
-    setPagina(page);
-    setSearched(true);
-    setLoading(false);
   }
 
   function handleSearch(e: React.FormEvent) {
     e.preventDefault();
-    setClientPage(1);
-    fetchLicitacoes(1);
+    fetchLicitacoes(1, sortBy);
+  }
+
+  function handleSortChange(key: 'recente' | 'antiga' | 'maior' | 'menor') {
+    setSortBy(key);
+    fetchLicitacoes(1, key);
+  }
+
+  function handlePageChange(newPage: number) {
+    if (newPage < 1 || newPage > totalPages || newPage === serverPage) return;
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+    fetchLicitacoes(newPage, sortBy);
   }
 
   return (
@@ -678,7 +554,7 @@ export default function LicitacoesPage() {
           <div className="flex flex-col items-center justify-center py-20 gap-3">
             <Loader2 className="h-10 w-10 animate-spin" style={{ color: '#0a1175' }} />
             <p style={{ fontSize: '13px', color: '#7B7B7B' }}>
-              Consultando API do governo federal...
+              Consultando banco de dados...
             </p>
           </div>
         )}
@@ -697,7 +573,7 @@ export default function LicitacoesPage() {
           </div>
         )}
 
-        {/* Empty state — só antes da primeira busca automática carregar */}
+        {/* Waiting for first search */}
         {!loading && !searched && !apiError && (
           <div className="flex justify-center py-24">
             <Loader2 className="h-8 w-8 animate-spin" style={{ color: '#0a1175' }} />
@@ -705,7 +581,7 @@ export default function LicitacoesPage() {
         )}
 
         {/* No results */}
-        {!loading && searched && !apiError && filtered.length === 0 && (
+        {!loading && searched && !apiError && displayedLicitacoes.length === 0 && (
           <div className="text-center py-16" style={{ color: '#7B7B7B' }}>
             <p style={{ fontWeight: 600 }}>Nenhuma licitação encontrada</p>
             <p style={{ fontSize: '13px', marginTop: '4px' }}>
@@ -715,30 +591,8 @@ export default function LicitacoesPage() {
         )}
 
         {/* Results */}
-        {!loading && filtered.length > 0 && (
+        {!loading && displayedLicitacoes.length > 0 && (
           <>
-            {/* Stale cache badge */}
-            {isStale && cacheTs && (
-              <div
-                className="flex items-center gap-2 mb-3 px-3 py-2 rounded-md text-xs"
-                style={{ backgroundColor: '#FFF8E1', border: '1px solid #FFE082', color: '#7B5800' }}
-              >
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" style={{ flexShrink: 0 }}>
-                  <circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/>
-                </svg>
-                <span>
-                  Cache atualizado {formatCacheAge(cacheTs)}.
-                  {revalidating
-                    ? ' Atualizando em segundo plano...'
-                    : (
-                      <> <button
-                        onClick={() => { setIsStale(false); setAllLicitacoes([]); fetchLicitacoes(1); }}
-                        style={{ fontWeight: 700, textDecoration: 'underline', background: 'none', border: 'none', cursor: 'pointer', color: 'inherit', padding: 0 }}
-                      >Atualizar agora</button></>
-                    )}
-                </span>
-              </div>
-            )}
             {/* Result count + refresh + sort buttons */}
             <div
               className="flex items-center justify-between flex-wrap gap-2"
@@ -746,16 +600,16 @@ export default function LicitacoesPage() {
             >
               <div className="flex items-center gap-2 flex-wrap">
                 <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 500 }}>
-                  {allLicitacoes.length < dbTotal && dbTotal > 0
-                    ? <>Exibindo <strong style={{ color: '#262E3A' }}>{allLicitacoes.length.toLocaleString('pt-BR')}</strong> de <strong style={{ color: '#262E3A' }}>{dbTotal.toLocaleString('pt-BR')}</strong> resultados</>
-                    : <>{totalFiltered.toLocaleString('pt-BR')} resultado(s)</>
-                  }
-                  {totalClientPages > 1 && ` — Página ${safeClientPage} de ${totalClientPages}`}
+                  <strong style={{ color: '#262E3A' }}>{totalRegistros.toLocaleString('pt-BR')}</strong>
+                  {' '}licitação{totalRegistros !== 1 ? 'ões' : ''}
+                  {totalPages > 1 && (
+                    <> — Página <strong style={{ color: '#262E3A' }}>{serverPage}</strong> de <strong style={{ color: '#262E3A' }}>{totalPages}</strong></>
+                  )}
                 </span>
                 <button
-                  onClick={refreshSearch}
-                  disabled={loading || revalidating}
-                  title="Atualizar resultados do PNCP (ignora cache)"
+                  onClick={() => fetchLicitacoes(serverPage, sortBy)}
+                  disabled={loading}
+                  title="Atualizar resultados"
                   style={{
                     display: 'inline-flex', alignItems: 'center', gap: '6px',
                     height: '30px', padding: '0 12px',
@@ -764,15 +618,15 @@ export default function LicitacoesPage() {
                     backgroundColor: '#fff',
                     color: '#262E3A',
                     fontSize: '12.5px', fontWeight: 600,
-                    cursor: (loading || revalidating) ? 'wait' : 'pointer',
+                    cursor: loading ? 'wait' : 'pointer',
                     transition: 'all 0.15s',
-                    opacity: (loading || revalidating) ? 0.7 : 1,
+                    opacity: loading ? 0.7 : 1,
                   }}
-                  onMouseEnter={e => { if (!loading && !revalidating) { (e.currentTarget as HTMLElement).style.backgroundColor = '#0a1175'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#0a1175'; } }}
+                  onMouseEnter={e => { if (!loading) { (e.currentTarget as HTMLElement).style.backgroundColor = '#0a1175'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#0a1175'; } }}
                   onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; (e.currentTarget as HTMLElement).style.color = '#262E3A'; (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3'; }}
                 >
-                  <RefreshCw className={`h-3.5 w-3.5 ${(loading || revalidating) ? 'animate-spin' : ''}`} />
-                  {revalidating ? 'Atualizando...' : loading ? 'Buscando...' : 'Atualizar'}
+                  <RefreshCw className={`h-3.5 w-3.5 ${loading ? 'animate-spin' : ''}`} />
+                  Atualizar
                 </button>
               </div>
 
@@ -786,7 +640,8 @@ export default function LicitacoesPage() {
                 ] as const).map(({ key, label }) => (
                   <button
                     key={key}
-                    onClick={() => { setSortBy(key); setClientPage(1); }}
+                    onClick={() => handleSortChange(key)}
+                    disabled={loading}
                     style={{
                       fontSize: '12px',
                       fontWeight: 600,
@@ -795,12 +650,13 @@ export default function LicitacoesPage() {
                       border: sortBy === key ? 'none' : '1px solid #D3D3D3',
                       backgroundColor: sortBy === key ? '#262E3A' : '#fff',
                       color: sortBy === key ? '#fff' : '#7B7B7B',
-                      cursor: 'pointer',
+                      cursor: loading ? 'wait' : 'pointer',
+                      opacity: loading ? 0.6 : 1,
                       transition: 'all 0.15s',
                       whiteSpace: 'nowrap',
                     }}
                     onMouseEnter={e => {
-                      if (sortBy !== key) (e.currentTarget as HTMLElement).style.borderColor = '#262E3A';
+                      if (sortBy !== key && !loading) (e.currentTarget as HTMLElement).style.borderColor = '#262E3A';
                     }}
                     onMouseLeave={e => {
                       if (sortBy !== key) (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3';
@@ -813,7 +669,7 @@ export default function LicitacoesPage() {
             </div>
 
             {/* Cards */}
-            {filtered.map((l) => (
+            {displayedLicitacoes.map((l) => (
               <LicitacaoCard
                 key={l.numeroControlePNCP}
                 licitacao={l}
@@ -826,52 +682,19 @@ export default function LicitacoesPage() {
               />
             ))}
 
-            {/* Load more from server */}
-            {hasMore && (
-              <div className="flex flex-col items-center gap-2 pt-4 pb-2">
-                <p style={{ fontSize: '13px', color: '#7B7B7B' }}>
-                  Exibindo {allLicitacoes.length.toLocaleString('pt-BR')} de {dbTotal.toLocaleString('pt-BR')} resultados no banco
-                </p>
-                <button
-                  onClick={loadMore}
-                  disabled={loadingMore}
-                  style={{
-                    display: 'inline-flex', alignItems: 'center', gap: '8px',
-                    height: '38px', padding: '0 24px',
-                    borderRadius: '8px',
-                    border: '1px solid #D3D3D3',
-                    backgroundColor: '#fff',
-                    color: '#262E3A',
-                    fontSize: '13px', fontWeight: 600,
-                    cursor: loadingMore ? 'wait' : 'pointer',
-                    transition: 'all 0.15s',
-                    opacity: loadingMore ? 0.7 : 1,
-                  }}
-                  onMouseEnter={e => { if (!loadingMore) { (e.currentTarget as HTMLElement).style.backgroundColor = '#0a1175'; (e.currentTarget as HTMLElement).style.color = '#fff'; (e.currentTarget as HTMLElement).style.borderColor = '#0a1175'; } }}
-                  onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#fff'; (e.currentTarget as HTMLElement).style.color = '#262E3A'; (e.currentTarget as HTMLElement).style.borderColor = '#D3D3D3'; }}
-                >
-                  {loadingMore
-                    ? <><Loader2 className="h-4 w-4 animate-spin" /> Carregando mais...</>
-                    : <>Carregar mais {Math.min(5000, dbTotal - allLicitacoes.length).toLocaleString('pt-BR')} resultados</>
-                  }
-                </button>
-              </div>
-            )}
-
-            {/* Client-side pagination */}
-            {totalClientPages > 1 && (
+            {/* Server-side pagination */}
+            {totalPages > 1 && (
               <div className="flex items-center justify-center gap-1 pt-4 pb-2">
                 <PaginationBtn
-                  onClick={() => setClientPage(p => Math.max(1, p - 1))}
-                  disabled={safeClientPage <= 1}
+                  onClick={() => handlePageChange(serverPage - 1)}
+                  disabled={serverPage <= 1 || loading}
                   label="←"
                 />
 
-                {/* Page numbers with ellipsis */}
                 {(() => {
                   const pages: (number | '...')[] = [];
-                  const cur = safeClientPage;
-                  const tot = totalClientPages;
+                  const cur = serverPage;
+                  const tot = totalPages;
                   if (tot <= 7) {
                     for (let i = 1; i <= tot; i++) pages.push(i);
                   } else {
@@ -884,13 +707,19 @@ export default function LicitacoesPage() {
                   return pages.map((p, i) =>
                     p === '...'
                       ? <span key={`e${i}`} style={{ padding: '0 4px', fontSize: '13px', color: '#7B7B7B' }}>...</span>
-                      : <PaginationBtn key={p} label={String(p)} active={p === cur} onClick={() => setClientPage(p as number)} />
+                      : <PaginationBtn
+                          key={p}
+                          label={String(p)}
+                          active={p === cur}
+                          disabled={loading}
+                          onClick={() => handlePageChange(p as number)}
+                        />
                   );
                 })()}
 
                 <PaginationBtn
-                  onClick={() => setClientPage(p => Math.min(totalClientPages, p + 1))}
-                  disabled={safeClientPage >= totalClientPages}
+                  onClick={() => handlePageChange(serverPage + 1)}
+                  disabled={serverPage >= totalPages || loading}
                   label="→"
                 />
               </div>
@@ -900,15 +729,6 @@ export default function LicitacoesPage() {
       </main>
     </div>
   );
-}
-
-function formatCacheAge(ts: number): string {
-  const minutes = Math.floor((Date.now() - ts) / 60000);
-  if (minutes < 1) return 'agora mesmo';
-  if (minutes < 60) return `há ${minutes} min`;
-  const hours = Math.floor(minutes / 60);
-  const mins = minutes % 60;
-  return `há ${hours}h${mins > 0 ? ` ${mins}min` : ''}`;
 }
 
 function PaginationBtn({
@@ -947,7 +767,6 @@ function PaginationBtn({
   );
 }
 
-// Oportunidades como checkboxes
 function OportunidadesCheckboxes({
   selected,
   onChange,
@@ -966,7 +785,6 @@ function OportunidadesCheckboxes({
           const raw = o.licitacoes_oportunidade_tagmento;
           if (!raw) return;
           try {
-            // Tenta parsear como JSON array: ["impressora","arroz"]
             const parsed = JSON.parse(raw);
             if (Array.isArray(parsed)) {
               parsed.forEach((k: string) => {
@@ -976,7 +794,6 @@ function OportunidadesCheckboxes({
               keywords.push(parsed);
             }
           } catch {
-            // Não é JSON, usa direto como string
             if (!keywords.includes(raw)) keywords.push(raw);
           }
         });
@@ -1013,32 +830,6 @@ function OportunidadesCheckboxes({
           />
           {tag}
         </label>
-      ))}
-    </div>
-  );
-}
-
-// mantido para não quebrar importações antigas
-function OportunidadesTags() {
-  const [tags] = useState<string[]>([]);
-  if (tags.length === 0) return null;
-  return (
-    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
-      {tags.map((tag, i) => (
-        <span
-          key={i}
-          style={{
-            fontSize: '11px',
-            padding: '2px 8px',
-            borderRadius: '4px',
-            backgroundColor: '#F1F1FC',
-            color: '#0a1175',
-            fontWeight: 600,
-            cursor: 'default',
-          }}
-        >
-          {tag}
-        </span>
       ))}
     </div>
   );
