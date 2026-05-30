@@ -222,7 +222,7 @@ export default function LicitacoesPage() {
     const termoBusca = [busca.trim(), ...oportunidadesSelecionadas].filter(Boolean).join(' ');
     if (termoBusca) params.set('busca', termoBusca);
     if (codigoOrgao.trim()) params.set('cnpj', codigoOrgao.trim());
-    params.set('limit', '5000');
+    params.set('limit', '10000');
     if (extraOffset > 0) params.set('offset', String(extraOffset));
     return params;
   }

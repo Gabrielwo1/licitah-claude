@@ -20,9 +20,9 @@ const PNCP_PAGE_SIZE = 50;
  * (i.e. day 1 before the first sync runs).
  */
 
-function threeMonthsAgo(): string {
+function fourMonthsAgo(): string {
   const d = new Date();
-  d.setMonth(d.getMonth() - 3);
+  d.setMonth(d.getMonth() - 4);
   return d.toISOString().split('T')[0];
 }
 
@@ -86,9 +86,9 @@ export async function GET(req: NextRequest) {
   const codigoIbge    = sp.get('codigoIbge')  || '';
   const busca         = (sp.get('busca')      || '').trim();
   const modalidade    = sp.get('modalidade')  || '';
-  const dataInicialIn = sp.get('dataInicial') || threeMonthsAgo();
+  const dataInicialIn = sp.get('dataInicial') || fourMonthsAgo();
   const dataFinalIn   = sp.get('dataFinal')   || todayStr();
-  const limitRaw      = Number(sp.get('limit')) || 5000;
+  const limitRaw      = Number(sp.get('limit')) || 10000;
   const limit         = Math.min(Math.max(limitRaw, 1), 10000);
   const offsetRaw     = Number(sp.get('offset')) || 0;
   const offset        = Math.max(offsetRaw, 0);
