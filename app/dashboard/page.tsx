@@ -9,7 +9,8 @@ import Link from 'next/link';
 import sql from '@/lib/db';
 import { formatCurrency } from '@/lib/utils';
 import { Licitacao } from '@/lib/types';
-import { fetchOportunidades, parseRegion } from '@/lib/oportunidades';
+import { parseRegion } from '@/lib/oportunidades';
+import { queryOportunidadesFromCache } from '@/lib/oportunidades-cache';
 
 // ── Data fetches ──────────────────────────────────────────────────────────────
 
@@ -20,21 +21,19 @@ import { fetchOportunidades, parseRegion } from '@/lib/oportunidades';
  *   - cached for 5 min (revalidate: 300) to avoid hammering PNCP on every nav
  *   - limited to top 5 newest matches
  */
-async function getUltimasOportunidades(keywords: string[], region: string): Promise<Licitacao[]> {
+async function getUltimasOportunidades(
+  keywords:    string[],
+  region:      string,
+  catmatCodes: string[] = [],
+): Promise<Licitacao[]> {
   if (keywords.length === 0) return [];
-
   const { uf, cidade } = parseRegion(region);
-
-  const result = await fetchOportunidades(
-    keywords,
-    { uf, cidade },
-    {
-      cache: { revalidate: 300 }, // 5 min cache for dashboard preview
-      limit: 5,
-    }
-  );
-
-  return result.data as Licitacao[];
+  const data = await queryOportunidadesFromCache(keywords, { uf, cidade }, {
+    periodo:     '30d',
+    catmatCodes,
+    limit:       5,
+  });
+  return data as Licitacao[];
 }
 
 async function getStats(userId: string) {
@@ -140,13 +139,13 @@ async function getProximasTarefas(userId: string) {
 async function getOportunidadeConfig(userId: string) {
   try {
     const rows = await sql`
-      SELECT licitacoes_oportunidade_tagmento, licitacoes_oportunidade_regioes
+      SELECT licitacoes_oportunidade_tagmento, licitacoes_oportunidade_regioes, catmat_codes
       FROM licitacoes_oportunidades
       WHERE licitacoes_oportunidade_autor = ${userId}
       ORDER BY licitacoes_oportunidade_id DESC
       LIMIT 1
     `;
-    if (rows.length === 0) return { keywords: [] as string[], region: '' };
+    if (rows.length === 0) return { keywords: [] as string[], region: '', catmatCodes: [] as string[] };
     const raw = rows[0].licitacoes_oportunidade_tagmento || '';
     let keywords: string[] = [];
     try {
@@ -155,9 +154,10 @@ async function getOportunidadeConfig(userId: string) {
     } catch {
       keywords = String(raw).split(',').map(s => s.trim()).filter(Boolean);
     }
-    return { keywords, region: rows[0].licitacoes_oportunidade_regioes || '' };
+    const catmatCodes: string[] = Array.isArray(rows[0].catmat_codes) ? rows[0].catmat_codes : [];
+    return { keywords, region: rows[0].licitacoes_oportunidade_regioes || '', catmatCodes };
   } catch {
-    return { keywords: [], region: '' };
+    return { keywords: [], region: '', catmatCodes: [] as string[] };
   }
 }
 
@@ -210,7 +210,7 @@ export default async function DashboardPage() {
   const oppConfig = await getOportunidadeConfig(userId);
 
   const [ultimasOpp, stats, docs, pipeline, tarefas] = await Promise.all([
-    getUltimasOportunidades(oppConfig.keywords, oppConfig.region),
+    getUltimasOportunidades(oppConfig.keywords, oppConfig.region, oppConfig.catmatCodes),
     getStats(userId),
     getDocumentosResumo(userId),
     getPipeline(empresaId),

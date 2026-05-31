@@ -22,6 +22,9 @@ export async function register() {
       ON licitacoes_pncp_cache USING GIN (catmat_codes)
       WHERE catmat_codes IS NOT NULL`;
 
+    await sql`ALTER TABLE licitacoes_oportunidades
+      ADD COLUMN IF NOT EXISTS catmat_codes TEXT[]`;
+
   } catch {
     // Migrations are best-effort; a failure here must not block startup.
   }
