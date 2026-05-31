@@ -25,6 +25,12 @@ export async function register() {
     await sql`ALTER TABLE licitacoes_oportunidades
       ADD COLUMN IF NOT EXISTS catmat_codes TEXT[]`;
 
+    await sql`ALTER TABLE usuarios
+      ADD COLUMN IF NOT EXISTS usuario_whatsapp VARCHAR(20)`;
+
+    await sql`ALTER TABLE licitacoes_oportunidades
+      ADD COLUMN IF NOT EXISTS ultimo_alerta_em TIMESTAMP`;
+
   } catch {
     // Migrations are best-effort; a failure here must not block startup.
   }
