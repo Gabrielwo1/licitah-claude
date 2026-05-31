@@ -12,6 +12,18 @@
     {
       "path": "/api/cron/sync-pncp",
       "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 22 * * *"
     }
   ]
 }
