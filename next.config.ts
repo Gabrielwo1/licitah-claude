@@ -2,7 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   experimental: {
-    // No experimental flags needed
+    after: true,
   },
   // Allow images from any domain
   images: {

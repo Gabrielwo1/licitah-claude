@@ -8,37 +8,38 @@ export const maxDuration = 60;
 export const dynamic = 'force-dynamic';
 
 /**
- * Daily sync triggered by Vercel Cron (06:00 and 18:00 BRT).
+ * Daily sync triggered by Vercel Cron (06:00 and 18:00 BRT / 09:00 and 21:00 UTC).
  *
  * Mode is selected automatically based on cache size:
- *   < 5 000 records  → BOOTSTRAP: sync 90 days for top-priority modalidades
- *   < 30 000 records → FILL: sync 90 days for remaining modalidades (picks up
- *                      where bootstrap left off by priority order)
- *   ≥ 30 000 records → INCREMENTAL: sync last 2 days for all modalidades
+ *   < 5 000 records  → BOOTSTRAP: dispara cadeia de 90 dias pelas modalidades prioritárias
+ *   < 400 000 records → FILL: dispara cadeia de 90 dias por todas as modalidades
+ *   ≥ 400 000 records → INCREMENTAL: sync dos últimos 2 dias inline (rápido, cabe em 55s)
  *
- * This means the cache populates itself over 1-2 days with no manual
- * intervention — each cron run advances the fill until the full 90-day
- * window is covered.
+ * Em modo bootstrap/fill: o cron dispara /api/internal/sync-chain que encadeia
+ * automaticamente todas as modalidades (~12 min no total), cada uma com sua
+ * própria janela de 60s — sem depender do frontend.
  */
 
-const HARD_BUDGET_MS  = 55_000;
+const HARD_BUDGET_MS   = 55_000;
 const INCREMENTAL_DAYS = 2;
 const BOOTSTRAP_DAYS   = 90;
 
-// Priority-1 only (highest volume) — used for the very first bootstrap pass
 const PRIORITY1 = ALL_MODALIDADES.filter(m => m.priority === 1);
 
+function baseUrl(req: NextRequest): string {
+  if (process.env.NEXTAUTH_URL) return process.env.NEXTAUTH_URL.replace(/\/$/, '');
+  const proto = req.headers.get('x-forwarded-proto') || 'https';
+  const host  = req.headers.get('host') || 'localhost:3000';
+  return `${proto}://${host}`;
+}
+
 export async function GET(req: NextRequest) {
-  // Auth: Vercel Cron sends Authorization: Bearer <CRON_SECRET>
   const authHeader = req.headers.get('authorization') || '';
   const provided   = authHeader.replace(/^Bearer\s+/i, '').trim();
   const expected   = process.env.CRON_SECRET || '';
   if (expected && provided !== expected) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 });
   }
-
-  const startedAt  = Date.now();
-  const deadlineAt = startedAt + HARD_BUDGET_MS;
 
   // ── Decide mode based on cache volume ──────────────────────────────────────
   let cacheCount = 0;
@@ -48,37 +49,55 @@ export async function GET(req: NextRequest) {
   } catch { /* proceed with 0 */ }
 
   let mode: 'bootstrap' | 'fill' | 'incremental';
-  let targets: typeof ALL_MODALIDADES;
-  let days: number;
-  let incremental: boolean;
 
   if (cacheCount < 5_000) {
-    // First pass: get the most important modalidades (highest volume) 90 days back
-    mode        = 'bootstrap';
-    targets     = PRIORITY1;
-    days        = BOOTSTRAP_DAYS;
-    incremental = false;
+    mode = 'bootstrap';
   } else if (cacheCount < 400_000) {
-    // Fill pass: keep filling 90 days for all modalidades until the cache is
-    // substantially complete (~400k covers most of the 90-day window for all Brazil)
-    mode        = 'fill';
-    targets     = ALL_MODALIDADES;
-    days        = BOOTSTRAP_DAYS;
-    incremental = false;
+    mode = 'fill';
   } else {
-    // Steady-state: daily incremental for all modalidades
-    mode        = 'incremental';
-    targets     = ALL_MODALIDADES;
-    days        = INCREMENTAL_DAYS;
-    incremental = true;
+    mode = 'incremental';
   }
 
   const logId = await logSyncStart(null, mode);
 
+  // ── BOOTSTRAP / FILL: dispara cadeia interna e retorna ────────────────────
+  if (mode !== 'incremental') {
+    const targets  = mode === 'bootstrap' ? PRIORITY1 : ALL_MODALIDADES;
+    const chainUrl = `${baseUrl(req)}/api/internal/sync-chain`;
+
+    try {
+      await fetch(chainUrl, {
+        method:  'POST',
+        headers: {
+          'Content-Type':      'application/json',
+          'x-internal-secret': expected,
+        },
+        body: JSON.stringify({ step: 0, days: BOOTSTRAP_DAYS }),
+      });
+    } catch (e: any) {
+      await logSyncEnd(logId, { inserted: 0, updated: 0, errors: 1 }, 'error', String(e?.message || e));
+      return NextResponse.json({ error: 'Falha ao iniciar cadeia de sync', detail: String(e?.message || e) }, { status: 500 });
+    }
+
+    await logSyncEnd(logId, { inserted: 0, updated: 0, errors: 0 }, 'ok');
+
+    return NextResponse.json({
+      ok:         true,
+      mode,
+      cacheCount,
+      chainStarted: true,
+      message:    `Cadeia de sync iniciada — ${targets.length} modalidades serão processadas (~${targets.length} min)`,
+    });
+  }
+
+  // ── INCREMENTAL: faz inline pois cabe nos 55s ─────────────────────────────
+  const startedAt  = Date.now();
+  const deadlineAt = startedAt + HARD_BUDGET_MS;
+
   const perModalidade: any[] = [];
   let totalInserted = 0, totalUpdated = 0, totalErrors = 0;
 
-  for (const m of targets) {
+  for (const m of ALL_MODALIDADES) {
     if (Date.now() > deadlineAt) {
       perModalidade.push({ modalidade: m.mod, skipped: 'deadline' });
       continue;
@@ -86,8 +105,8 @@ export async function GET(req: NextRequest) {
     try {
       const result = await syncModalidade({
         modalidade:  m.mod,
-        days,
-        incremental,
+        days:        INCREMENTAL_DAYS,
+        incremental: true,
         deadlineAt,
         concurrency: 8,
       });
