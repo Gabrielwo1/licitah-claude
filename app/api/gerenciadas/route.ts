@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
+import { verificarLimiteGerenciadas, respostaLimiteAtingido } from '@/lib/user-plano';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -52,7 +53,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'Identificador obrigatório' }, { status: 400 });
   }
 
-  // Upsert — se já existe, retorna o existente
+  // Upsert — se já existe, retorna o existente (não conta no limite)
   const existing = await sql`
     SELECT lg_id FROM licitacoes_gerenciadas
     WHERE lg_conta = ${userId} AND lg_identificador = ${identificador}
@@ -60,6 +61,15 @@ export async function POST(req: NextRequest) {
 
   if (existing.length > 0) {
     return NextResponse.json({ lg_id: existing[0].lg_id, already_existed: true });
+  }
+
+  // Verificar limite do plano antes de inserir
+  const limite = await verificarLimiteGerenciadas(userId);
+  if (!limite.ok) {
+    return NextResponse.json(
+      respostaLimiteAtingido('licitações gerenciadas', limite.atual, limite.limite, limite.plano),
+      { status: 403 },
+    );
   }
 
   const rows = await sql`
