@@ -116,6 +116,17 @@ export default function LicitacoesPage() {
   const [concEdital, setConcEdital] = useState(false);
   const [oportunidadesSelecionadas, setOportunidadesSelecionadas] = useState<string[]>([]);
 
+  const [catmatBannerDismissed, setCatmatBannerDismissed] = useState(true);
+
+  useEffect(() => {
+    setCatmatBannerDismissed(localStorage.getItem('catmat_banner_v1') === '1');
+  }, []);
+
+  function dismissCatmatBanner() {
+    localStorage.setItem('catmat_banner_v1', '1');
+    setCatmatBannerDismissed(true);
+  }
+
   const [loading, setLoading] = useState(false);
   const [sortBy, setSortBy] = useState<'recente' | 'antiga' | 'maior' | 'menor'>('recente');
   const didAutoSearch = useRef(false);
@@ -237,7 +248,71 @@ export default function LicitacoesPage() {
   }
 
   return (
-    <div className="flex gap-5 min-h-full" style={{ alignItems: 'flex-start' }}>
+    <div className="flex flex-col gap-4 min-h-full">
+
+      {/* ── CATMAT/CATSERV feature banner ── */}
+      {!catmatBannerDismissed && (
+        <div
+          style={{
+            display:         'flex',
+            alignItems:      'center',
+            justifyContent:  'space-between',
+            gap:             '12px',
+            padding:         '12px 16px',
+            borderRadius:    '10px',
+            background:      'linear-gradient(135deg, #0a1175 0%, #1e3a8a 100%)',
+            border:          '1px solid #1e3a8a',
+            boxShadow:       '0 2px 8px rgba(10,17,117,0.18)',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+            <span
+              style={{
+                backgroundColor: '#F59E0B',
+                color:           '#78350F',
+                fontSize:        '10px',
+                fontWeight:      800,
+                padding:         '2px 8px',
+                borderRadius:    '20px',
+                letterSpacing:   '0.6px',
+                whiteSpace:      'nowrap',
+              }}
+            >
+              NOVO
+            </span>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: 700, color: '#fff', margin: 0 }}>
+                Busca por Código CATMAT / CATSERV
+              </p>
+              <p style={{ fontSize: '12px', color: '#93C5FD', margin: 0, marginTop: '2px' }}>
+                Filtre licitações pelo código oficial de material ou serviço do governo federal.
+                Use o campo <strong style={{ color: '#fff' }}>"Código CATMAT/CATSERV"</strong> nos filtros ao lado.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={dismissCatmatBanner}
+            title="Fechar"
+            style={{
+              background:  'transparent',
+              border:      'none',
+              color:       '#93C5FD',
+              fontSize:    '18px',
+              lineHeight:  1,
+              cursor:      'pointer',
+              padding:     '2px 6px',
+              borderRadius: '4px',
+              flexShrink:  0,
+            }}
+            onMouseEnter={e => (e.currentTarget.style.color = '#fff')}
+            onMouseLeave={e => (e.currentTarget.style.color = '#93C5FD')}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+    <div className="flex gap-5" style={{ alignItems: 'flex-start' }}>
 
       {/* ── LEFT FILTER SIDEBAR ── */}
       <aside
@@ -744,6 +819,7 @@ export default function LicitacoesPage() {
           </>
         )}
       </main>
+    </div>
     </div>
   );
 }
