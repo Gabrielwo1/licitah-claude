@@ -110,6 +110,7 @@ export default function LicitacoesPage() {
   const [situacao, setSituacao] = useState('');
   const [orgao, setOrgao] = useState('');
   const [itens, setItens] = useState('');
+  const [catmat, setCatmat] = useState('');
   const [concAto, setConcAto] = useState(false);
   const [concAviso, setConcAviso] = useState(false);
   const [concEdital, setConcEdital] = useState(false);
@@ -187,6 +188,7 @@ export default function LicitacoesPage() {
     const termoBusca = [busca.trim(), ...oportunidadesSelecionadas].filter(Boolean).join(' ');
     if (termoBusca)         params.set('busca',       termoBusca);
     if (codigoOrgao.trim()) params.set('cnpj',        codigoOrgao.trim());
+    if (catmat.trim())      params.set('catmat',       catmat.trim());
     params.set('page',     String(page));
     params.set('pageSize', '100');
     params.set('sort',     sort);
@@ -462,6 +464,21 @@ export default function LicitacoesPage() {
                 onChange={(e) => setItens(e.target.value)}
                 style={inputStyle}
               />
+            </div>
+
+            {/* Código CATMAT / CATSERV */}
+            <div style={{ marginBottom: '12px' }}>
+              <label style={fieldLabel}>Código CATMAT/CATSERV</label>
+              <input
+                type="text"
+                value={catmat}
+                onChange={(e) => setCatmat(e.target.value)}
+                placeholder="Ex: 44103109"
+                style={inputStyle}
+              />
+              <span style={{ fontSize: '11px', color: '#9CA3AF', marginTop: '3px', display: 'block' }}>
+                Filtra por código de material ou serviço
+              </span>
             </div>
 
             <hr style={divider} />

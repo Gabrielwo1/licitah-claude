@@ -97,6 +97,8 @@ export async function GET(req: NextRequest) {
   const sortRaw = (sp.get('sort') || '').toLowerCase();
   const sort    = sortRaw || (busca ? 'relevance' : 'recente');
 
+  const catmat = (sp.get('catmat') || '').trim();
+
   const startedAt = Date.now();
 
   const modalidadeId: number | null = modalidade && modalidade !== 'all'
@@ -119,6 +121,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY
             ts_rank(search_vector, plainto_tsquery('portuguese', ${busca})) DESC,
             data_publicacao DESC NULLS LAST
@@ -133,6 +136,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -148,6 +152,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY valor_estimado DESC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -160,6 +165,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -175,6 +181,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY valor_estimado ASC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -187,6 +194,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -202,6 +210,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY data_publicacao ASC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -214,6 +223,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -230,6 +240,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY data_publicacao DESC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -242,6 +253,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -256,6 +268,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY valor_estimado DESC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -267,6 +280,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -281,6 +295,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY valor_estimado ASC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -292,6 +307,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -306,6 +322,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY data_publicacao ASC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -317,6 +334,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
@@ -332,6 +350,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
           ORDER BY data_publicacao DESC NULLS LAST
           LIMIT ${pageSize} OFFSET ${offset}
         `,
@@ -343,6 +362,7 @@ export async function GET(req: NextRequest) {
             AND (${uf}::text = '' OR uf = ${uf})
             AND (${municipio}::text = '' OR municipio ILIKE ${'%' + municipio + '%'})
             AND (${modalidadeId}::int IS NULL OR modalidade_id = ${modalidadeId})
+            AND (${catmat}::text = '' OR catmat_codes @> ARRAY[${catmat}::text])
         `,
       ]);
       rows = dataRows; dbTotal = Number(countRows[0]?.c || 0);
