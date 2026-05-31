@@ -58,8 +58,9 @@ export async function GET(req: NextRequest) {
     targets     = PRIORITY1;
     days        = BOOTSTRAP_DAYS;
     incremental = false;
-  } else if (cacheCount < 30_000) {
-    // Fill pass: advance through all modalidades, sorted by priority, until deadline
+  } else if (cacheCount < 400_000) {
+    // Fill pass: keep filling 90 days for all modalidades until the cache is
+    // substantially complete (~400k covers most of the 90-day window for all Brazil)
     mode        = 'fill';
     targets     = ALL_MODALIDADES;
     days        = BOOTSTRAP_DAYS;
