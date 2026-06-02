@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import Link from 'next/link';
-import { Settings, Trash2, Briefcase } from 'lucide-react';
+import { Settings, Trash2, Briefcase, Gavel } from 'lucide-react';
 import { formatCurrency, formatDateTime } from '@/lib/utils';
 
 interface GerenciadaRow {
@@ -225,26 +225,49 @@ export default function MinhasLicitacoesPage() {
                     )}
                   </div>
 
-                  {/* Button */}
-                  <Link href={gerenciarHref}>
-                    <button
-                      className="flex items-center gap-1.5 font-semibold"
-                      style={{
-                        backgroundColor: '#262E3A',
-                        color: '#fff',
-                        fontSize: '13px',
-                        padding: '7px 14px',
-                        borderRadius: '6px',
-                        border: 'none',
-                        cursor: 'pointer',
-                      }}
-                      onMouseEnter={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#1a2029')}
-                      onMouseLeave={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#262E3A')}
+                  {/* Buttons */}
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <Link href={gerenciarHref}>
+                      <button
+                        className="flex items-center gap-1.5 font-semibold"
+                        style={{
+                          backgroundColor: '#262E3A',
+                          color: '#fff',
+                          fontSize: '13px',
+                          padding: '7px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#1a2029')}
+                        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#262E3A')}
+                      >
+                        <Settings className="h-3.5 w-3.5" />
+                        Gerenciar licitação
+                      </button>
+                    </Link>
+                    <Link
+                      href={`/dashboard/lances?licitacao=${encodeURIComponent(l.lg_identificador)}&objeto=${encodeURIComponent(l.lg_objeto || '')}&orgao=${encodeURIComponent(l.lg_orgao || '')}`}
                     >
-                      <Settings className="h-3.5 w-3.5" />
-                      Gerenciar licitação
-                    </button>
-                  </Link>
+                      <button
+                        className="flex items-center gap-1.5 font-semibold"
+                        style={{
+                          backgroundColor: '#FF6600',
+                          color: '#fff',
+                          fontSize: '13px',
+                          padding: '7px 14px',
+                          borderRadius: '6px',
+                          border: 'none',
+                          cursor: 'pointer',
+                        }}
+                        onMouseEnter={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#e05a00')}
+                        onMouseLeave={e => ((e.currentTarget as HTMLElement).style.backgroundColor = '#FF6600')}
+                      >
+                        <Gavel className="h-3.5 w-3.5" />
+                        Registrar Lance
+                      </button>
+                    </Link>
+                  </div>
                 </div>
               </div>
             );

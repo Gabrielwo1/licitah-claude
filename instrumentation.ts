@@ -31,6 +31,22 @@ export async function register() {
     await sql`ALTER TABLE licitacoes_oportunidades
       ADD COLUMN IF NOT EXISTS ultimo_alerta_em TIMESTAMP`;
 
+    await sql`CREATE TABLE IF NOT EXISTS lances (
+      lance_id       SERIAL PRIMARY KEY,
+      lance_licitacao VARCHAR(100) NOT NULL,
+      lance_conta    INTEGER NOT NULL,
+      lance_empresa  INTEGER,
+      lance_objeto   TEXT,
+      lance_orgao    TEXT,
+      lance_valor    NUMERIC(15,2) NOT NULL,
+      lance_observacao TEXT,
+      lance_resultado VARCHAR(30) NOT NULL DEFAULT 'aguardando',
+      lance_data     TIMESTAMP NOT NULL DEFAULT NOW()
+    )`;
+
+    await sql`CREATE INDEX IF NOT EXISTS idx_lances_conta
+      ON lances (lance_conta)`;
+
   } catch {
     // Migrations are best-effort; a failure here must not block startup.
   }
