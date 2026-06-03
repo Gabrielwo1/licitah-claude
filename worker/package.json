@@ -6,7 +6,8 @@
   "scripts": {
     "build": "tsc",
     "start": "node dist/index.js",
-    "dev": "tsx src/index.ts"
+    "dev": "tsx src/index.ts",
+    "diagnostico": "DEBUG_SCREENSHOTS=true tsx src/diagnostico.ts"
   },
   "dependencies": {
     "playwright": "^1.45.0",
