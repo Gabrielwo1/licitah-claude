@@ -7,7 +7,27 @@
   "crons": [
     {
       "path": "/api/cron/sync-pncp",
-      "schedule": "0 6 * * *"
+      "schedule": "0 9 * * *"
+    },
+    {
+      "path": "/api/cron/sync-pncp",
+      "schedule": "0 21 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 10 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 15 * * *"
+    },
+    {
+      "path": "/api/cron/enrich-catmat",
+      "schedule": "0 22 * * *"
+    },
+    {
+      "path": "/api/cron/monitorar-alertas",
+      "schedule": "0 11 * * *"
     }
   ]
 }

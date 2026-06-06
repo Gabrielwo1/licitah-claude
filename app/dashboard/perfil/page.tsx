@@ -1,8 +1,8 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useSession } from 'next-auth/react';
-import { User, Lock, Save } from 'lucide-react';
+import { User, Lock, Save, MessageCircle } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -13,12 +13,28 @@ export default function PerfilPage() {
   const [saving, setSaving] = useState(false);
   const [success, setSuccess] = useState('');
   const [error, setError] = useState('');
+  const [whatsapp, setWhatsapp] = useState('');
   const [passwordForm, setPasswordForm] = useState({ atual: '', nova: '', confirmar: '' });
   const [pwLoading, setPwLoading] = useState(false);
   const [pwSuccess, setPwSuccess] = useState('');
   const [pwError, setPwError] = useState('');
 
   const user = session?.user as any;
+
+  useEffect(() => {
+    fetch('/api/perfil')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.whatsapp) setWhatsapp(d.whatsapp); })
+      .catch(() => null);
+  }, []);
+
+  function formatWhatsapp(value: string): string {
+    const digits = value.replace(/\D/g, '').substring(0, 13);
+    if (digits.length <= 2)  return digits;
+    if (digits.length <= 4)  return `+${digits.slice(0, 2)} (${digits.slice(2)}`;
+    if (digits.length <= 9)  return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4)}`;
+    return `+${digits.slice(0, 2)} (${digits.slice(2, 4)}) ${digits.slice(4, 9)}-${digits.slice(9)}`;
+  }
 
   async function handleSaveProfile(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -27,14 +43,14 @@ export default function PerfilPage() {
     setError('');
 
     const formData = new FormData(e.currentTarget);
-    const nome = formData.get('nome') as string;
+    const nome  = formData.get('nome') as string;
     const email = formData.get('email') as string;
 
     try {
       const res = await fetch('/api/perfil', {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, email }),
+        body: JSON.stringify({ nome, email, whatsapp }),
       });
       if (res.ok) {
         setSuccess('Perfil atualizado com sucesso!');
@@ -120,6 +136,19 @@ export default function PerfilPage() {
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
               <Input id="email" name="email" type="email" defaultValue={user?.email || ''} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="whatsapp" className="flex items-center gap-1.5">
+                <MessageCircle className="h-3.5 w-3.5 text-green-600" />
+                WhatsApp para alertas
+              </Label>
+              <Input
+                id="whatsapp"
+                placeholder="+55 (11) 99999-9999"
+                value={whatsapp}
+                onChange={e => setWhatsapp(formatWhatsapp(e.target.value))}
+              />
+              <p className="text-xs text-gray-400">Receberá alertas de licitações urgentes e mudanças de situação.</p>
             </div>
             <Button type="submit" loading={saving}>
               <Save className="h-4 w-4" />

@@ -6,7 +6,7 @@ import { usePathname } from 'next/navigation';
 import { signOut, useSession } from 'next-auth/react';
 import {
   LayoutDashboard, Search, Target, CheckSquare, Star, Building2,
-  User, CreditCard, Bell, ShieldCheck, LogOut, X, Menu, Briefcase, FolderOpen, FileText
+  User, CreditCard, Bell, ShieldCheck, LogOut, X, Menu, Briefcase, FolderOpen, FileText, Gavel, Bot
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -17,6 +17,8 @@ const navItems = [
   { href: '/dashboard/documentacao', label: 'Documentação', icon: FolderOpen },
   { href: '/dashboard/declaracoes', label: 'Declarações', icon: FileText },
   { href: '/dashboard/oportunidades', label: 'Oportunidades', icon: Target },
+  { href: '/dashboard/lances', label: 'Lances', icon: Gavel },
+  { href: '/dashboard/robo', label: 'Robô de Lances', icon: Bot },
   { href: '/dashboard/tarefas', label: 'Tarefas', icon: CheckSquare },
   { href: '/dashboard/favoritos', label: 'Favoritos', icon: Star },
   { href: '/dashboard/empresas', label: 'Empresas', icon: Building2 },

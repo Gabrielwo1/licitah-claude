@@ -80,9 +80,10 @@ export default function OportunidadesPage() {
 
   const [licitacoes, setLicitacoes] = useState<any[]>([]);
   const [keywords, setKeywords] = useState<string[]>([]);
+  const [catmatCodesConfig, setCatmatCodesConfig] = useState<string[]>([]);
   const [ufConfig, setUfConfig] = useState('');
   const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);  // background revalidation
+  const [refreshing, setRefreshing] = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [hasConfig, setHasConfig] = useState(false);
   const [fetchedAt, setFetchedAt] = useState<number | null>(null);
@@ -93,17 +94,21 @@ export default function OportunidadesPage() {
   const STALE_TTL = 6  * 60 * 60 * 1000;   // 6 hours — drop entirely
 
   function applyResponse(json: any) {
-    const kws: string[] = Array.isArray(json.keywords) ? json.keywords.filter(Boolean) : [];
-    const data = json.data || [];
+    const kws: string[]         = Array.isArray(json.keywords)   ? json.keywords.filter(Boolean)   : [];
+    const catmat: string[]      = Array.isArray(json.catmatCodes) ? json.catmatCodes.filter(Boolean) : [];
+    const data                  = json.data || [];
     let regionLabel = '';
     if (json.cidade) regionLabel = `${json.cidade} - ${json.uf}`;
     else if (json.uf) regionLabel = json.uf;
-    setKeywords(kws); setUfConfig(regionLabel); setLicitacoes(data);
+    setKeywords(kws);
+    setCatmatCodesConfig(catmat);
+    setUfConfig(regionLabel);
+    setLicitacoes(data);
     setHasConfig(kws.length > 0);
     const ts = json.fetchedAt ? new Date(json.fetchedAt).getTime() : Date.now();
     setFetchedAt(ts);
     if (kws.length > 0) {
-      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts, kws, uf: regionLabel })); } catch {}
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify({ data, ts, kws, catmat, uf: regionLabel })); } catch {}
     }
   }
 
@@ -127,9 +132,11 @@ export default function OportunidadesPage() {
         const parsed = JSON.parse(raw);
         const age = Date.now() - parsed.ts;
         if (age < STALE_TTL) {
-          const cleanKws: string[] = Array.isArray(parsed.kws) ? parsed.kws.filter(Boolean) : [];
+          const cleanKws: string[]    = Array.isArray(parsed.kws)    ? parsed.kws.filter(Boolean)    : [];
+          const cleanCatmat: string[] = Array.isArray(parsed.catmat) ? parsed.catmat.filter(Boolean) : [];
           setLicitacoes(parsed.data || []);
           setKeywords(cleanKws);
+          setCatmatCodesConfig(cleanCatmat);
           setUfConfig(parsed.uf || '');
           setHasConfig(cleanKws.length > 0);
           setFetchedAt(parsed.ts);
@@ -307,12 +314,17 @@ export default function OportunidadesPage() {
         ))}
       </div>
 
-      {/* Keywords chips display */}
+      {/* Keywords + CATMAT chips display */}
       {keywords.length > 0 && (
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '16px', flexWrap: 'wrap' }}>
           <span style={{ fontSize: '13px', color: '#7B7B7B', fontWeight: 600 }}>Buscando por:</span>
           {keywords.map(kw => (
             <span key={kw} style={{ backgroundColor: '#1a237e', color: '#fff', fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px' }}>{kw}</span>
+          ))}
+          {catmatCodesConfig.map(code => (
+            <span key={code} style={{ backgroundColor: '#0D9488', color: '#fff', fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '4px' }}>
+              <span style={{ fontSize: '10px', opacity: 0.8 }}>CATMAT</span> {code}
+            </span>
           ))}
           {ufConfig && (
             <span style={{ backgroundColor: '#FF6600', color: '#fff', fontSize: '12px', fontWeight: 600, padding: '3px 10px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '4px' }}>
@@ -824,6 +836,8 @@ const UF_NAMES: Record<string, string> = {
 function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () => void }) {
   const [keywords, setKeywords] = useState<string[]>([]);
   const [inputKw, setInputKw] = useState('');
+  const [catmatCodes, setCatmatCodes] = useState<string[]>([]);
+  const [inputCatmat, setInputCatmat] = useState('');
   const [scope, setScope] = useState<'brasil' | 'estado' | 'cidade'>('brasil');
   const [uf, setUf] = useState('');
   const [cidade, setCidade] = useState('');
@@ -850,8 +864,8 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
           kws = (row.licitacoes_oportunidade_tagmento || '').split(',').map((s: string) => s.trim()).filter(Boolean);
         }
         setKeywords(kws);
+        setCatmatCodes(Array.isArray(row.catmat_codes) ? row.catmat_codes.map(String).filter(Boolean) : []);
 
-        // region: already normalized to "" | "SP" | "SP:City"
         const reg = row.licitacoes_oportunidade_regioes || '';
         if (reg.includes(':')) {
           const idx = reg.indexOf(':');
@@ -880,6 +894,12 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
     inputRef.current?.focus();
   }
 
+  function addCatmat() {
+    const code = inputCatmat.trim().replace(/\D/g, '');
+    if (code && !catmatCodes.includes(code)) setCatmatCodes(prev => [...prev, code]);
+    setInputCatmat('');
+  }
+
   async function save() {
     if (keywords.length === 0) return;
     setSaving(true);
@@ -891,7 +911,7 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
       await fetch('/api/oportunidades', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ palavras: JSON.stringify(keywords), regioes }),
+        body: JSON.stringify({ palavras: JSON.stringify(keywords), regioes, catmatCodes }),
       });
       onSaved();
     } finally { setSaving(false); }
@@ -1076,6 +1096,66 @@ function DefinirModal({ onClose, onSaved }: { onClose: () => void; onSaved: () =
                     <span style={{ fontSize: '13px', fontWeight: 600, color: '#1a237e' }}>
                       {scope === 'brasil' ? 'Buscando em todo o Brasil' : scope === 'estado' ? `Apenas ${UF_NAMES[uf] || uf}` : cidade ? `${cidade} - ${uf}` : `Todo o estado de ${UF_NAMES[uf] || uf}`}
                     </span>
+                  </div>
+                )}
+              </div>
+
+              {/* Divider */}
+              <div style={{ borderTop: '1px solid #F0F0F0', margin: '28px 0' }} />
+
+              {/* ── Seção 3: Códigos CATMAT / CATSERV ── */}
+              <div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '14px' }}>
+                  <div style={{ width: '24px', height: '24px', borderRadius: '50%', backgroundColor: '#0D9488', color: '#fff', fontSize: '12px', fontWeight: 800, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>3</div>
+                  <span style={{ fontSize: '15px', fontWeight: 700, color: '#262E3A' }}>Códigos CATMAT / CATSERV <span style={{ fontSize: '12px', fontWeight: 400, color: '#9B9B9B' }}>(opcional)</span></span>
+                </div>
+                <p style={{ fontSize: '13px', color: '#7B7B7B', marginBottom: '12px', marginLeft: '32px' }}>
+                  Adicione códigos oficiais de material ou serviço para filtrar licitações com mais precisão. Ex: <em>44103109</em> (papel A4)
+                </p>
+
+                <div style={{ display: 'flex', gap: '8px', marginLeft: '32px', marginBottom: '12px' }}>
+                  <input
+                    type="text"
+                    value={inputCatmat}
+                    onChange={e => setInputCatmat(e.target.value.replace(/\D/g, ''))}
+                    onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); addCatmat(); } }}
+                    placeholder="Código numérico, ex: 44103109"
+                    maxLength={10}
+                    style={{ flex: 1, height: '44px', border: '2px solid #E8E8E8', borderRadius: '10px', padding: '0 14px', fontSize: '14px', outline: 'none', transition: 'border-color 0.15s', color: '#262E3A', fontFamily: 'monospace' }}
+                    onFocus={e => (e.currentTarget.style.borderColor = '#0D9488')}
+                    onBlur={e => (e.currentTarget.style.borderColor = '#E8E8E8')}
+                  />
+                  <button
+                    onClick={addCatmat}
+                    disabled={!inputCatmat.trim()}
+                    style={{ width: '44px', height: '44px', backgroundColor: inputCatmat.trim() ? '#0D9488' : '#E8E8E8', color: inputCatmat.trim() ? '#fff' : '#9B9B9B', border: 'none', borderRadius: '10px', cursor: inputCatmat.trim() ? 'pointer' : 'default', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0, transition: 'all 0.15s', fontSize: '20px', fontWeight: 300 }}
+                  >
+                    <Plus className="h-5 w-5" />
+                  </button>
+                </div>
+
+                <div style={{ marginLeft: '32px', minHeight: '48px', backgroundColor: '#F0FDFA', border: '1px dashed #99F6E4', borderRadius: '10px', padding: '10px 12px', display: 'flex', flexWrap: 'wrap', gap: '8px', alignContent: 'flex-start' }}>
+                  {catmatCodes.length === 0 ? (
+                    <span style={{ fontSize: '13px', color: '#C0C0C0', fontStyle: 'italic', lineHeight: '28px' }}>Nenhum código CATMAT/CATSERV adicionado</span>
+                  ) : catmatCodes.map(code => (
+                    <span key={code} style={{ backgroundColor: '#0D9488', color: '#fff', fontSize: '13px', fontWeight: 600, padding: '5px 10px 5px 14px', borderRadius: '20px', display: 'flex', alignItems: 'center', gap: '6px', fontFamily: 'monospace' }}>
+                      {code}
+                      <button
+                        onClick={() => setCatmatCodes(prev => prev.filter(c => c !== code))}
+                        style={{ background: 'rgba(255,255,255,0.25)', border: 'none', cursor: 'pointer', color: '#fff', padding: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', width: '18px', height: '18px', borderRadius: '50%', flexShrink: 0 }}
+                        onMouseEnter={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.4)')}
+                        onMouseLeave={e => (e.currentTarget.style.backgroundColor = 'rgba(255,255,255,0.25)')}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </span>
+                  ))}
+                </div>
+                {catmatCodes.length > 0 && (
+                  <div style={{ marginLeft: '32px', marginTop: '6px' }}>
+                    <button onClick={() => setCatmatCodes([])} style={{ fontSize: '12px', color: '#FF4500', background: 'none', border: 'none', cursor: 'pointer', fontWeight: 600 }}>
+                      Limpar códigos
+                    </button>
                   </div>
                 )}
               </div>

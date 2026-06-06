@@ -59,13 +59,14 @@ export async function GET(req: NextRequest) {
   if (rows.length === 0) return NextResponse.json([]);
 
   const row = rows[0];
-  // Return with normalized fields so the modal always gets clean data
-  const keywords = parseKeywords(row.licitacoes_oportunidade_tagmento);
-  const regioes = normalizeRegion(row.licitacoes_oportunidade_regioes || '');
+  const keywords   = parseKeywords(row.licitacoes_oportunidade_tagmento);
+  const regioes    = normalizeRegion(row.licitacoes_oportunidade_regioes || '');
+  const catmatCodes: string[] = Array.isArray(row.catmat_codes) ? row.catmat_codes : [];
   return NextResponse.json([{
     ...row,
     licitacoes_oportunidade_tagmento: JSON.stringify(keywords),
-    licitacoes_oportunidade_regioes: regioes,
+    licitacoes_oportunidade_regioes:  regioes,
+    catmat_codes:                     catmatCodes,
   }]);
 }
 
@@ -75,11 +76,13 @@ export async function POST(req: NextRequest) {
 
   const empresaId = (session.user as any).empresaId || 0;
   const userId = (session.user as any).id;
-  const { palavras, regioes } = await req.json();
+  const { palavras, regioes, catmatCodes } = await req.json();
 
   if (!palavras) return NextResponse.json({ error: 'Palavras-chave obrigatórias' }, { status: 400 });
 
-  // Check if user already has a config → UPDATE; otherwise INSERT
+  const catmatArr: string[] = Array.isArray(catmatCodes) ? catmatCodes.map(String).filter(Boolean) : [];
+  const pgCatmat = '{' + catmatArr.map(c => `"${c.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`).join(',') + '}';
+
   const existing = await sql`
     SELECT licitacoes_oportunidade_id FROM licitacoes_oportunidades
     WHERE licitacoes_oportunidade_autor = ${userId}
@@ -92,7 +95,8 @@ export async function POST(req: NextRequest) {
       UPDATE licitacoes_oportunidades
       SET licitacoes_oportunidade_regioes = ${regioes || ''},
           licitacoes_oportunidade_tagmento = ${palavras},
-          licitacoes_oportunidade_empresa  = ${empresaId}
+          licitacoes_oportunidade_empresa  = ${empresaId},
+          catmat_codes = ${pgCatmat}::text[]
       WHERE licitacoes_oportunidade_autor = ${userId}
       RETURNING *
     `;
@@ -101,9 +105,11 @@ export async function POST(req: NextRequest) {
     result = await sql`
       INSERT INTO licitacoes_oportunidades (
         licitacoes_oportunidade_empresa, licitacoes_oportunidade_regioes,
-        licitacoes_oportunidade_tagmento, licitacoes_oportunidade_hash, licitacoes_oportunidade_autor
+        licitacoes_oportunidade_tagmento, licitacoes_oportunidade_hash,
+        licitacoes_oportunidade_autor, catmat_codes
       )
-      VALUES (${empresaId}, ${regioes || ''}, ${palavras}, ${hash}, ${userId})
+      VALUES (${empresaId}, ${regioes || ''}, ${palavras}, ${hash},
+              ${userId}, ${pgCatmat}::text[])
       RETURNING *
     `;
   }

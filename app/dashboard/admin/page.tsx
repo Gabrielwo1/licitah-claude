@@ -5,17 +5,18 @@ import sql from '@/lib/db';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Users, Building2, CreditCard, ShieldCheck } from 'lucide-react';
 import { AdminUsersTable } from './AdminUsersTable';
+import { SyncPanel } from './SyncPanel';
 
 async function getAdminStats() {
   const [usersCount, empresasCount, assCount] = await Promise.all([
-    sql`SELECT COUNT(*) as c FROM usuarios`,
-    sql`SELECT COUNT(*) as c FROM empresas`,
-    sql`SELECT COUNT(*) as c FROM pay_assinaturas WHERE payassi_estado = 'ativa'`,
+    sql`SELECT COUNT(*) as c FROM usuarios`.catch(() => [{ c: 0 }]),
+    sql`SELECT COUNT(*) as c FROM empresas`.catch(() => [{ c: 0 }]),
+    sql`SELECT COUNT(*) as c FROM pay_assinaturas WHERE payassi_estado = 'ativa'`.catch(() => [{ c: 0 }]),
   ]);
   return {
-    usuarios: Number(usersCount[0]?.c || 0),
-    empresas: Number(empresasCount[0]?.c || 0),
-    assinaturas: Number(assCount[0]?.c || 0),
+    usuarios:    Number(usersCount[0]?.c  || 0),
+    empresas:    Number(empresasCount[0]?.c || 0),
+    assinaturas: Number(assCount[0]?.c    || 0),
   };
 }
 
@@ -25,7 +26,7 @@ async function getUsers() {
     FROM usuarios
     ORDER BY usuario_id DESC
     LIMIT 100
-  `;
+  `.catch(() => []);
 }
 
 export default async function AdminPage() {
@@ -84,6 +85,9 @@ export default async function AdminPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* PNCP Cache Sync */}
+      <SyncPanel />
 
       {/* Users table */}
       <Card>

@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 import { createHash } from 'crypto';
+import { verificarLimiteTarefas, respostaLimiteAtingido } from '@/lib/user-plano';
 
 function randomHash(): string {
   return createHash('md5').update(Math.random().toString()).digest('hex');
@@ -48,9 +49,18 @@ export async function POST(req: NextRequest) {
 
   const userId = (session.user as any).id;
   const userName = (session.user as any).name || '';
-  const { nome, prazo, prioridade, anotacao, subtarefas, nomeResponsavel } = await req.json();
+  const { nome, prazo, prioridade, anotacao, subtarefas, nomeResponsavel, licitacaoGoverno } = await req.json();
 
   if (!nome) return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 });
+
+  // Verificar limite do plano (por licitação se vinculada, senão global)
+  const limite = await verificarLimiteTarefas(userId, licitacaoGoverno || null);
+  if (!limite.ok) {
+    return NextResponse.json(
+      respostaLimiteAtingido('tarefas', limite.atual, limite.limite, limite.plano),
+      { status: 403 },
+    );
+  }
 
   const hash = randomHash();
   const responsavel = nomeResponsavel || userName;

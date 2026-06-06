@@ -3,6 +3,7 @@ import { getServerSession } from 'next-auth';
 import { authOptions } from '@/lib/auth';
 import sql from '@/lib/db';
 import { createHash } from 'crypto';
+import { verificarLimiteDocumentos, respostaLimiteAtingido } from '@/lib/user-plano';
 
 export async function GET(req: NextRequest) {
   const session = await getServerSession(authOptions);
@@ -82,6 +83,15 @@ export async function POST(req: NextRequest) {
   const { nome, documento, dataValidade, licitacaoGoverno } = body;
   if (!nome) {
     return NextResponse.json({ error: 'Nome obrigatório' }, { status: 400 });
+  }
+
+  // Verificar limite do plano
+  const limite = await verificarLimiteDocumentos(userId);
+  if (!limite.ok) {
+    return NextResponse.json(
+      respostaLimiteAtingido('documentos', limite.atual, limite.limite, limite.plano),
+      { status: 403 },
+    );
   }
 
   const hash = createHash('md5').update(`${userId}-${Date.now()}`).digest('hex').slice(0, 10);
