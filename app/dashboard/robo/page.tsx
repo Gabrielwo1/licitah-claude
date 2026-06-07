@@ -346,6 +346,69 @@ function SessaoCard({ s, onCancel }: { s: Sessao; onCancel: (id: number) => void
   );
 }
 
+// ── Demo data ─────────────────────────────────────────────────────────────────
+
+const DEMO_SESSOES: Sessao[] = [
+  {
+    id: 99,
+    uasg: '158140',
+    numero_pregao: '00042/2024',
+    item_numero: '3',
+    objeto: 'Aquisição de Notebook Dell Latitude 5540 — 20 unidades',
+    preco_minimo: 3800.00,
+    estrategia: 'moderada',
+    status: 'em_disputa',
+    melhor_lance: 4120.00,
+    lance_vencedor: null,
+    posicao_atual: 1,
+    iniciado_em: new Date(Date.now() - 18 * 60 * 1000).toISOString(),
+    encerrado_em: null,
+    lances: [
+      { id: 5, valor: 4120.00, tipo: 'automatico', criado_em: new Date(Date.now() - 2 * 60 * 1000).toISOString(),  contexto: {} },
+      { id: 4, valor: 4250.00, tipo: 'automatico', criado_em: new Date(Date.now() - 6 * 60 * 1000).toISOString(),  contexto: {} },
+      { id: 3, valor: 4390.00, tipo: 'automatico', criado_em: new Date(Date.now() - 10 * 60 * 1000).toISOString(), contexto: {} },
+      { id: 2, valor: 4520.00, tipo: 'automatico', criado_em: new Date(Date.now() - 14 * 60 * 1000).toISOString(), contexto: {} },
+      { id: 1, valor: 4680.00, tipo: 'automatico', criado_em: new Date(Date.now() - 18 * 60 * 1000).toISOString(), contexto: {} },
+    ],
+  },
+  {
+    id: 98,
+    uasg: '090019',
+    numero_pregao: '00015/2024',
+    item_numero: '1',
+    objeto: 'Serviços de Limpeza e Conservação — Contrato anual',
+    preco_minimo: 28000.00,
+    estrategia: 'conservadora',
+    status: 'aguardando_disputa',
+    melhor_lance: null,
+    lance_vencedor: null,
+    posicao_atual: null,
+    iniciado_em: new Date(Date.now() - 5 * 60 * 1000).toISOString(),
+    encerrado_em: null,
+    lances: [],
+  },
+  {
+    id: 97,
+    uasg: '250005',
+    numero_pregao: '00008/2024',
+    item_numero: '2',
+    objeto: 'Fornecimento de Material de Escritório — Papel A4 e Canetas',
+    preco_minimo: 1200.00,
+    estrategia: 'agressiva',
+    status: 'vencemos',
+    melhor_lance: 1185.00,
+    lance_vencedor: 1185.00,
+    posicao_atual: 1,
+    iniciado_em: new Date(Date.now() - 90 * 60 * 1000).toISOString(),
+    encerrado_em: new Date(Date.now() - 30 * 60 * 1000).toISOString(),
+    lances: [
+      { id: 9, valor: 1185.00, tipo: 'automatico', criado_em: new Date(Date.now() - 32 * 60 * 1000).toISOString(), contexto: {} },
+      { id: 8, valor: 1200.00, tipo: 'automatico', criado_em: new Date(Date.now() - 45 * 60 * 1000).toISOString(), contexto: {} },
+      { id: 7, valor: 1250.00, tipo: 'automatico', criado_em: new Date(Date.now() - 60 * 60 * 1000).toISOString(), contexto: {} },
+    ],
+  },
+];
+
 // ── Main page ─────────────────────────────────────────────────────────────────
 
 export default function RoboPage() {
@@ -383,12 +446,15 @@ export default function RoboPage() {
     load();
   }
 
-  const ativas   = sessoes.filter(s => ['aguardando','conectando','aguardando_disputa','em_disputa'].includes(s.status));
-  const vencidas = sessoes.filter(s => s.status === 'vencemos');
-  const perdidas = sessoes.filter(s => s.status === 'perdemos');
+  const isDemo   = !loading && sessoes.length === 0;
+  const baseSessoes = isDemo ? DEMO_SESSOES : sessoes;
+  const ativas   = baseSessoes.filter(s => ['aguardando','conectando','aguardando_disputa','em_disputa'].includes(s.status));
+  const vencidas = baseSessoes.filter(s => s.status === 'vencemos');
+  const perdidas = baseSessoes.filter(s => s.status === 'perdemos');
   const taxa     = (vencidas.length + perdidas.length) > 0 ? Math.round(vencidas.length / (vencidas.length + perdidas.length) * 100) : 0;
 
   const exibidas = filtro === 'ativas' ? sessoes.filter(s => ['aguardando','conectando','aguardando_disputa','em_disputa'].includes(s.status)) : sessoes;
+
 
   return (
     <div style={{ padding: '24px', maxWidth: '900px' }}>
@@ -462,10 +528,23 @@ export default function RoboPage() {
       {/* Sessions */}
       {loading ? (
         <p className="text-sm text-gray-400">Carregando...</p>
+      ) : exibidas.length === 0 && sessoes.length === 0 ? (
+        <>
+          {/* Demo banner */}
+          <div className="mb-4 flex items-center gap-3 rounded-xl px-4 py-3" style={{ backgroundColor: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+            <Bot className="h-4 w-4 shrink-0" style={{ color: '#1D4ED8' }} />
+            <p className="text-sm" style={{ color: '#1E40AF' }}>
+              <span className="font-bold">Prévia demonstrativa</span> — veja abaixo como ficará o painel quando o robô estiver disputando pregões reais.
+            </p>
+          </div>
+          <div className="space-y-3 opacity-75 pointer-events-none select-none">
+            {DEMO_SESSOES.map(s => <SessaoCard key={s.id} s={s} onCancel={() => {}} />)}
+          </div>
+        </>
       ) : exibidas.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <Bot className="h-12 w-12 mx-auto mb-4 opacity-20" />
-          <p className="text-sm">{sessoes.length === 0 ? 'Nenhuma sessão ainda. Inicie o robô em um pregão!' : 'Nenhuma sessão ativa no momento.'}</p>
+          <p className="text-sm">Nenhuma sessão ativa no momento.</p>
         </div>
       ) : (
         <div className="space-y-3">
