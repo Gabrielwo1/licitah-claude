@@ -31,8 +31,8 @@ export interface Job {
 export async function fetchJobs(): Promise<Job[]> {
   const res = await fetch(`${BASE_URL}/api/robo/jobs`, { headers: headers() });
   if (!res.ok) return [];
-  const { jobs } = await res.json();
-  return jobs || [];
+  const data = await res.json() as { jobs?: Job[] };
+  return data.jobs || [];
 }
 
 export async function claimJob(id: number): Promise<void> {
