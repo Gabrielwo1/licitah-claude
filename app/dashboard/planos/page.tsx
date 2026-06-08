@@ -1,11 +1,16 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X, Loader2, CreditCard, Star } from 'lucide-react';
+import { Check, X, Loader2, CreditCard, Star, AlertCircle } from 'lucide-react';
+import dynamic from 'next/dynamic';
+
+const CheckoutModal = dynamic(() => import('@/components/checkout/CheckoutModal'), { ssr: false });
 
 interface PlanoInfo {
-  plano: 'free' | 'expert';
-  uso: { gerenciadas: number; documentos: number; empresas: number };
+  plano:          'free' | 'expert';
+  subscriptionId: string | null;
+  status:         string | null;
+  uso:            { gerenciadas: number; documentos: number; empresas: number };
 }
 
 const FREE_FEATURES = [
@@ -29,18 +34,52 @@ const EXPERT_FEATURES = [
 ];
 
 export default function PlanosPage() {
-  const [info, setInfo]       = useState<PlanoInfo | null>(null);
-  const [loading, setLoading] = useState(true);
+  const [info, setInfo]             = useState<PlanoInfo | null>(null);
+  const [loading, setLoading]       = useState(true);
+  const [showCheckout, setShowCheckout] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [actionError, setActionError]   = useState<string | null>(null);
 
-  useEffect(() => {
-    fetch('/api/user/plano')
-      .then(r => r.ok ? r.json() : null)
-      .then(d => setInfo(d))
+  function loadInfo() {
+    setLoading(true);
+    Promise.all([
+      fetch('/api/user/plano').then(r => r.ok ? r.json() : null),
+      fetch('/api/checkout/status').then(r => r.ok ? r.json() : null),
+    ])
+      .then(([planoData, statusData]) => {
+        if (!planoData) return;
+        setInfo({
+          plano:          planoData.plano,
+          subscriptionId: statusData?.subscriptionId ?? null,
+          status:         statusData?.status ?? null,
+          uso:            planoData.uso,
+        });
+      })
       .catch(() => {})
       .finally(() => setLoading(false));
-  }, []);
+  }
+
+  useEffect(() => { loadInfo(); }, []);
 
   const isExpert = info?.plano === 'expert';
+
+  async function handleCancelar() {
+    if (!cancelConfirm) { setCancelConfirm(true); return; }
+    setCancelling(true);
+    setActionError(null);
+    try {
+      const res  = await fetch('/api/checkout/cancelar', { method: 'POST' });
+      const json = await res.json();
+      if (!res.ok) { setActionError(json.error ?? 'Erro ao cancelar'); return; }
+      setCancelConfirm(false);
+      loadInfo();
+    } catch {
+      setActionError('Erro de conexão. Tente novamente.');
+    } finally {
+      setCancelling(false);
+    }
+  }
 
   return (
     <div className="space-y-6">
@@ -53,16 +92,16 @@ export default function PlanosPage() {
       {!loading && info && (
         <div
           style={{
-            display:        'inline-flex',
-            alignItems:     'center',
-            gap:            '8px',
-            padding:        '8px 16px',
-            borderRadius:   '8px',
+            display:         'inline-flex',
+            alignItems:      'center',
+            gap:             '8px',
+            padding:         '8px 16px',
+            borderRadius:    '8px',
             backgroundColor: isExpert ? '#FFF4E5' : '#F0F4FF',
-            border:         `1px solid ${isExpert ? '#FFB347' : '#C7D2FE'}`,
-            fontSize:       '13px',
-            fontWeight:     600,
-            color:          isExpert ? '#B45309' : '#0a1175',
+            border:          `1px solid ${isExpert ? '#FFB347' : '#C7D2FE'}`,
+            fontSize:        '13px',
+            fontWeight:      600,
+            color:           isExpert ? '#B45309' : '#0a1175',
           }}
         >
           {isExpert
@@ -91,11 +130,9 @@ export default function PlanosPage() {
             preco="GRÁTIS"
             descricao="Ideal para testar o sistema e nossos benefícios antes de assinar!"
             features={FREE_FEATURES}
-            ativo={!isExpert}
             variante="free"
-            ctaLabel={isExpert ? 'Plano atual: Free (downgrade)' : 'Plano atual'}
-            ctaOnClick={isExpert ? undefined : undefined}
-            ctaDisabled={!isExpert}
+            ctaLabel={isExpert ? 'Plano básico' : 'Plano atual'}
+            ctaDisabled
           />
 
           {/* ── Plano Expert ── */}
@@ -104,17 +141,16 @@ export default function PlanosPage() {
             preco="R$ 99,99"
             descricao="A melhor opção pra quem quer total controle e automação!"
             features={EXPERT_FEATURES}
-            ativo={isExpert}
             variante="expert"
             ctaLabel={isExpert ? 'Plano atual' : 'Assinar Agora'}
-            ctaOnClick={isExpert ? undefined : handleAssinar}
+            ctaOnClick={isExpert ? undefined : () => setShowCheckout(true)}
             ctaDisabled={isExpert}
             destaque
           />
         </div>
       )}
 
-      {/* Uso atual */}
+      {/* Uso atual (plano free) */}
       {!loading && info && !isExpert && (
         <div
           style={{
@@ -136,28 +172,112 @@ export default function PlanosPage() {
         </div>
       )}
 
+      {/* Gerenciar assinatura (plano expert) */}
+      {!loading && isExpert && info?.subscriptionId && (
+        <div
+          style={{
+            maxWidth:        '900px',
+            border:          '1px solid #FED7AA',
+            borderRadius:    '10px',
+            padding:         '16px 20px',
+            backgroundColor: '#FFF7ED',
+          }}
+        >
+          <p style={{ fontSize: '13px', fontWeight: 700, color: '#92400E', marginBottom: '8px' }}>
+            Gerenciar assinatura
+          </p>
+          <p style={{ fontSize: '12px', color: '#B45309', marginBottom: '12px' }}>
+            ID da assinatura: <code style={{ fontFamily: 'monospace' }}>{info.subscriptionId}</code>
+          </p>
+
+          {actionError && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: '8px',
+              backgroundColor: '#FEF2F2', border: '1px solid #FECACA',
+              borderRadius: '8px', padding: '8px 12px', marginBottom: '12px',
+              fontSize: '13px', color: '#DC2626',
+            }}>
+              <AlertCircle style={{ width: '16px', height: '16px', flexShrink: 0 }} />
+              {actionError}
+            </div>
+          )}
+
+          {cancelConfirm ? (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '12px', flexWrap: 'wrap' }}>
+              <span style={{ fontSize: '13px', color: '#DC2626', fontWeight: 600 }}>
+                Confirmar cancelamento? Você voltará ao plano Free.
+              </span>
+              <button
+                onClick={handleCancelar}
+                disabled={cancelling}
+                style={{
+                  padding: '6px 16px', borderRadius: '8px', border: 'none',
+                  backgroundColor: '#DC2626', color: '#fff',
+                  fontSize: '13px', fontWeight: 700, cursor: cancelling ? 'not-allowed' : 'pointer',
+                  display: 'flex', alignItems: 'center', gap: '6px',
+                }}
+              >
+                {cancelling && <Loader2 style={{ width: '14px', height: '14px', animation: 'spin 1s linear infinite' }} />}
+                {cancelling ? 'Cancelando...' : 'Confirmar cancelamento'}
+              </button>
+              <button
+                onClick={() => { setCancelConfirm(false); setActionError(null); }}
+                style={{
+                  padding: '6px 16px', borderRadius: '8px',
+                  border: '1px solid #D1D5DB', backgroundColor: '#fff',
+                  fontSize: '13px', color: '#374151', cursor: 'pointer',
+                }}
+              >
+                Voltar
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={handleCancelar}
+              style={{
+                padding:         '6px 16px',
+                borderRadius:    '8px',
+                border:          '1px solid #D1D5DB',
+                backgroundColor: '#fff',
+                fontSize:        '13px',
+                color:           '#374151',
+                cursor:          'pointer',
+                fontWeight:      600,
+              }}
+            >
+              Cancelar assinatura
+            </button>
+          )}
+        </div>
+      )}
+
       <p style={{ fontSize: '12px', color: '#9CA3AF', maxWidth: '900px' }}>
-        Para assinar ou obter suporte entre em contato com nossa equipe.
+        Pagamentos processados com segurança pelo Mercado Pago.
         Todos os planos incluem acesso às licitações do governo federal em tempo real.
       </p>
+
+      {/* Checkout Modal */}
+      {showCheckout && (
+        <CheckoutModal
+          onClose={() => setShowCheckout(false)}
+          onSuccess={() => { setShowCheckout(false); loadInfo(); }}
+        />
+      )}
+
+      <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
   );
-}
-
-function handleAssinar() {
-  window.open('https://wa.me/5500000000000?text=Quero+assinar+o+Plano+Expert', '_blank');
 }
 
 // ── Componentes internos ──────────────────────────────────────────────────────
 
 function PlanCard({
-  nome, preco, descricao, features, ativo, variante, ctaLabel, ctaOnClick, ctaDisabled, destaque,
+  nome, preco, descricao, features, variante, ctaLabel, ctaOnClick, ctaDisabled, destaque,
 }: {
   nome: string;
   preco: string;
   descricao: string;
   features: { texto: string; ok: boolean }[];
-  ativo: boolean;
   variante: 'free' | 'expert';
   ctaLabel: string;
   ctaOnClick?: () => void;
@@ -200,20 +320,21 @@ function PlanCard({
         </div>
       )}
 
-      {/* Header */}
       <div>
         <p style={{ fontSize: '14px', color: isExpert ? '#FCA46A' : '#9CA3AF', fontWeight: 600, marginBottom: '4px' }}>
           {nome}
         </p>
-        <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1.1, marginBottom: '8px' }}>
+        <p style={{ fontSize: '36px', fontWeight: 800, lineHeight: 1.1, marginBottom: '4px' }}>
           {preco}
         </p>
+        {isExpert && (
+          <p style={{ fontSize: '12px', color: '#9CA3AF', marginBottom: '4px' }}>/mês</p>
+        )}
         <p style={{ fontSize: '13px', color: isExpert ? '#F3C89A' : '#9CA3AF', lineHeight: 1.5 }}>
           {descricao}
         </p>
       </div>
 
-      {/* Features */}
       <div style={{ display: 'flex', flexDirection: 'column', gap: '10px', flex: 1 }}>
         {features.map((f, i) => (
           <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '10px' }}>
@@ -233,7 +354,7 @@ function PlanCard({
             >
               {f.ok
                 ? <Check style={{ width: '11px', height: '11px', color: '#fff', strokeWidth: 3 }} />
-                : <X style={{ width: '11px', height: '11px', color: '#4B5563', strokeWidth: 3 }} />
+                : <X     style={{ width: '11px', height: '11px', color: '#4B5563', strokeWidth: 3 }} />
               }
             </div>
             <span style={{ fontSize: '13px', color: f.ok ? '#E5E7EB' : '#6B7280', lineHeight: 1.5 }}>
@@ -243,7 +364,6 @@ function PlanCard({
         ))}
       </div>
 
-      {/* CTA */}
       <button
         onClick={ctaOnClick}
         disabled={ctaDisabled}
@@ -280,7 +400,7 @@ function PlanCard({
 }
 
 function UsoItem({ label, atual, limite }: { label: string; atual: number; limite: number }) {
-  const pct = Math.min((atual / limite) * 100, 100);
+  const pct  = Math.min((atual / limite) * 100, 100);
   const over = atual >= limite;
   return (
     <div style={{ minWidth: '140px' }}>
