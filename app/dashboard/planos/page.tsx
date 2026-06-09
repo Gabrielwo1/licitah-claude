@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { Suspense, useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { Check, X, Loader2, CreditCard, Star, AlertCircle, CheckCircle } from 'lucide-react';
 
@@ -32,6 +32,14 @@ const EXPERT_FEATURES = [
 ];
 
 export default function PlanosPage() {
+  return (
+    <Suspense>
+      <PlanosContent />
+    </Suspense>
+  );
+}
+
+function PlanosContent() {
   const router         = useRouter();
   const searchParams   = useSearchParams();
   const justSubscribed = searchParams.get('success') === '1';
