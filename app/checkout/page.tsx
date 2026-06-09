@@ -298,10 +298,10 @@ export default function CheckoutPage() {
 
               <div style={{ display: 'grid', gridTemplateColumns: '130px 1fr', gap: '16px' }}>
                 <Field label="Tipo">
-                  <div id="mp-id-type" style={mpField} />
+                  <select id="mp-id-type" style={{ ...inputStyle, width: '100%', cursor: 'pointer' }} />
                 </Field>
                 <Field label="CPF / Documento">
-                  <div id="mp-id-number" style={mpField} />
+                  <input id="mp-id-number" style={{ ...inputStyle, width: '100%' }} placeholder="Digite seu CPF" />
                 </Field>
               </div>
 
@@ -574,9 +574,8 @@ export default function CheckoutPage() {
 
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
-        #mp-card-number iframe, #mp-expiry iframe, #mp-cvv iframe,
-        #mp-id-type iframe, #mp-id-number iframe
-        { width: 100% !important; height: 40px !important; }
+        #mp-card-number iframe, #mp-expiry iframe, #mp-cvv iframe
+        { width: 100% !important; height: 46px !important; border: none !important; display: block !important; }
         @media (max-width: 768px) {
           main { grid-template-columns: 1fr !important; }
         }
@@ -615,8 +614,7 @@ function Spin() {
 
 const mpField: React.CSSProperties = {
   backgroundColor: '#F9FAFB', border: '1px solid #D1D5DB',
-  borderRadius: '8px', height: '46px', padding: '0 12px',
-  display: 'flex', alignItems: 'center', overflow: 'hidden',
+  borderRadius: '8px', height: '46px',
 };
 
 const inputStyle: React.CSSProperties = {
