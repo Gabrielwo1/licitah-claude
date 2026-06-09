@@ -1,10 +1,8 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Check, X, Loader2, CreditCard, Star, AlertCircle } from 'lucide-react';
-import dynamic from 'next/dynamic';
-
-const CheckoutModal = dynamic(() => import('@/components/checkout/CheckoutModal'), { ssr: false });
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Check, X, Loader2, CreditCard, Star, AlertCircle, CheckCircle } from 'lucide-react';
 
 interface PlanoInfo {
   plano:          'free' | 'expert';
@@ -34,9 +32,12 @@ const EXPERT_FEATURES = [
 ];
 
 export default function PlanosPage() {
+  const router         = useRouter();
+  const searchParams   = useSearchParams();
+  const justSubscribed = searchParams.get('success') === '1';
+
   const [info, setInfo]             = useState<PlanoInfo | null>(null);
   const [loading, setLoading]       = useState(true);
-  const [showCheckout, setShowCheckout] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [actionError, setActionError]   = useState<string | null>(null);
@@ -87,6 +88,19 @@ export default function PlanosPage() {
         <CreditCard className="h-5 w-5 text-[#0a1175]" />
         <h1 className="text-xl font-bold text-gray-900">Planos e Assinaturas</h1>
       </div>
+
+      {/* Banner de sucesso após checkout */}
+      {justSubscribed && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: '10px',
+          backgroundColor: '#F0FDF4', border: '1px solid #BBF7D0',
+          borderRadius: '10px', padding: '12px 16px', maxWidth: '900px',
+          fontSize: '14px', fontWeight: 600, color: '#166534',
+        }}>
+          <CheckCircle style={{ width: '20px', height: '20px', flexShrink: 0 }} />
+          Assinatura ativada com sucesso! Bem-vindo ao Plano Expert.
+        </div>
+      )}
 
       {/* Badge do plano atual */}
       {!loading && info && (
@@ -143,7 +157,7 @@ export default function PlanosPage() {
             features={EXPERT_FEATURES}
             variante="expert"
             ctaLabel={isExpert ? 'Plano atual' : 'Assinar Agora'}
-            ctaOnClick={isExpert ? undefined : () => setShowCheckout(true)}
+            ctaOnClick={isExpert ? undefined : () => router.push('/checkout')}
             ctaDisabled={isExpert}
             destaque
           />
@@ -255,14 +269,6 @@ export default function PlanosPage() {
         Pagamentos processados com segurança pelo Mercado Pago.
         Todos os planos incluem acesso às licitações do governo federal em tempo real.
       </p>
-
-      {/* Checkout Modal */}
-      {showCheckout && (
-        <CheckoutModal
-          onClose={() => setShowCheckout(false)}
-          onSuccess={() => { setShowCheckout(false); loadInfo(); }}
-        />
-      )}
 
       <style>{`@keyframes spin { to { transform: rotate(360deg); } }`}</style>
     </div>
