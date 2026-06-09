@@ -31,6 +31,12 @@ export async function POST(_req: NextRequest) {
     ALTER TABLE usuarios ADD COLUMN IF NOT EXISTS usuario_plano VARCHAR(20) NOT NULL DEFAULT 'free'
   `);
 
+  await run('add_mp_subscription_columns', () => sql`
+    ALTER TABLE usuarios
+      ADD COLUMN IF NOT EXISTS mp_preapproval_id       VARCHAR(100),
+      ADD COLUMN IF NOT EXISTS mp_subscription_status  VARCHAR(20)
+  `);
+
   await run('add_catmat_codes', () => sql`
     ALTER TABLE licitacoes_pncp_cache ADD COLUMN IF NOT EXISTS catmat_codes TEXT[]
   `);
