@@ -77,7 +77,7 @@ export default function CheckoutPage() {
             identificationNumber: { id: 'mp-id-number',  placeholder: 'Digite seu CPF' },
           },
           callbacks: {
-            onFormMounted: (err: any) => { if (!err) setCardReady(true); },
+            onFormMounted: (err: any) => { if (err) console.warn('[MP] onFormMounted warning:', err); setCardReady(true); },
             onSubmit:      handleCardSubmit,
             onFetching:    () => {},
           },
