@@ -56,23 +56,10 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, [router]);
 
-  // Mount MP card form — re-runs every time card tab is shown
+  // Initialize MP card form ONCE — never unmount to avoid "already instantiated" errors
   useEffect(() => {
-    if (method !== 'card') return;
-
-    let active    = true;
-    let timerId: ReturnType<typeof setTimeout>;
-    setCardReady(false);
-
     function mountForm() {
-      if (!active || !window.MercadoPago) return;
-
-      // Unmount any existing instance before creating a new one
-      if (cardFormRef.current) {
-        try { cardFormRef.current.unmount(); } catch {}
-        cardFormRef.current = null;
-      }
-
+      if (!window.MercadoPago || cardFormRef.current) return;
       try {
         const mp   = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
         const form = mp.cardForm({
@@ -90,43 +77,29 @@ export default function CheckoutPage() {
             identificationNumber: { id: 'mp-id-number',  placeholder: 'Digite seu CPF' },
           },
           callbacks: {
-            onFormMounted: (err: any) => { if (!err && active) setCardReady(true); },
+            onFormMounted: (err: any) => { if (!err) setCardReady(true); },
             onSubmit:      handleCardSubmit,
             onFetching:    () => {},
           },
         });
         cardFormRef.current = form;
       } catch (e) {
-        console.error('[MP] cardForm init error', e);
-        // Retry once after a short delay if context already existed
-        timerId = setTimeout(() => { if (active) mountForm(); }, 300);
+        console.error('[MP] cardForm error:', e);
       }
     }
 
-    // Small delay so React StrictMode cleanup settles before remounting
-    const initTimer = setTimeout(() => {
-      if (window.MercadoPago) {
-        mountForm();
-      } else if (!document.getElementById('mp-sdk')) {
-        const s  = document.createElement('script');
-        s.id     = 'mp-sdk';
-        s.src    = MP_SDK;
-        s.onload = mountForm;
-        document.head.appendChild(s);
-      } else {
-        document.getElementById('mp-sdk')!.addEventListener('load', mountForm);
-      }
-    }, 80);
-
-    return () => {
-      active = false;
-      clearTimeout(initTimer);
-      clearTimeout(timerId);
-      try { cardFormRef.current?.unmount?.(); } catch {}
-      cardFormRef.current = null;
-    };
+    if (window.MercadoPago) {
+      mountForm();
+    } else if (!document.getElementById('mp-sdk')) {
+      const s  = document.createElement('script');
+      s.id     = 'mp-sdk';
+      s.src    = MP_SDK;
+      s.onload = mountForm;
+      document.head.appendChild(s);
+    }
+    // No cleanup — intentionally never unmount the MP form
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [method]);
+  }, []);
 
   // PIX status polling
   useEffect(() => {
@@ -303,9 +276,8 @@ export default function CheckoutPage() {
             ))}
           </div>
 
-          {/* ── Card form ── */}
-          {method === 'card' && (
-            <form id="mp-form" style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* ── Card form — always in DOM, hidden when PIX is active ── */}
+          <form id="mp-form" style={{ display: method === 'card' ? 'flex' : 'none', flexDirection: 'column', gap: '18px' }}>
 
               <Field label="Nome no cartão">
                 <div id="mp-holder" style={mpField} />
@@ -362,11 +334,9 @@ export default function CheckoutPage() {
                 </span>
               </div>
             </form>
-          )}
 
-          {/* ── PIX ── */}
-          {method === 'pix' && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '18px' }}>
+          {/* ── PIX — always in DOM, hidden when card is active ── */}
+          <div style={{ display: method === 'pix' ? 'flex' : 'none', flexDirection: 'column', gap: '18px' }}>
               {!pixData ? (
                 <>
                   <Field label="Seu CPF (opcional)">
@@ -486,7 +456,6 @@ export default function CheckoutPage() {
                 </div>
               )}
             </div>
-          )}
         </div>
 
         {/* ── Right: Order summary ── */}
