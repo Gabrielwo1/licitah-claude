@@ -56,12 +56,14 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, [router]);
 
-  // Initialize MP card form ONCE — never unmount to avoid "already instantiated" errors
+  // Initialize MP card form — force-reload SDK fresh to avoid stale cached form state
   useEffect(() => {
+    let active = true;
+
     function mountForm() {
-      if (!window.MercadoPago || cardFormRef.current) return;
+      if (!active || !(window as any).MercadoPago || cardFormRef.current) return;
       try {
-        const mp   = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
+        const mp   = new (window as any).MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
         const form = mp.cardForm({
           amount:    '99.99',
           autoMount: true,
@@ -77,27 +79,42 @@ export default function CheckoutPage() {
             identificationNumber: { id: 'mp-id-number',  placeholder: 'Digite seu CPF' },
           },
           callbacks: {
-            onFormMounted: (err: any) => { if (err) console.warn('[MP] onFormMounted warning:', err); setCardReady(true); },
-            onSubmit:      handleCardSubmit,
-            onFetching:    () => {},
+            onFormMounted: (err: any) => {
+              if (err) console.warn('[MP] onFormMounted warning:', err);
+              if (active) setCardReady(true);
+            },
+            onSubmit:   handleCardSubmit,
+            onFetching: () => {},
           },
         });
-        cardFormRef.current = form;
+        if (active) cardFormRef.current = form;
+        else try { form.unmount(); } catch {}
       } catch (e) {
         console.error('[MP] cardForm error:', e);
       }
     }
 
-    if (window.MercadoPago) {
-      mountForm();
-    } else if (!document.getElementById('mp-sdk')) {
-      const s  = document.createElement('script');
-      s.id     = 'mp-sdk';
-      s.src    = MP_SDK;
-      s.onload = mountForm;
-      document.head.appendChild(s);
-    }
-    // No cleanup — intentionally never unmount the MP form
+    // Always reload SDK fresh — deletes any cached form state from previous mounts
+    const prev = document.getElementById('mp-sdk');
+    if (prev) prev.remove();
+    delete (window as any).MercadoPago;
+
+    const s  = document.createElement('script');
+    s.id     = 'mp-sdk';
+    s.src    = MP_SDK;
+    s.onload = mountForm;
+    document.head.appendChild(s);
+
+    return () => {
+      active = false;
+      if (cardFormRef.current) {
+        try { cardFormRef.current.unmount(); } catch {}
+        cardFormRef.current = null;
+      }
+      const sdkEl = document.getElementById('mp-sdk');
+      if (sdkEl) sdkEl.remove();
+      delete (window as any).MercadoPago;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
