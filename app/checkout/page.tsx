@@ -60,13 +60,21 @@ export default function CheckoutPage() {
   useEffect(() => {
     if (method !== 'card') return;
 
-    let active = true;
+    let active    = true;
+    let timerId: ReturnType<typeof setTimeout>;
     setCardReady(false);
 
     function mountForm() {
       if (!active || !window.MercadoPago) return;
+
+      // Unmount any existing instance before creating a new one
+      if (cardFormRef.current) {
+        try { cardFormRef.current.unmount(); } catch {}
+        cardFormRef.current = null;
+      }
+
       try {
-        const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
+        const mp   = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
         const form = mp.cardForm({
           amount:    '99.99',
           autoMount: true,
@@ -77,6 +85,7 @@ export default function CheckoutPage() {
             securityCode:         { id: 'mp-cvv',         placeholder: 'CVV' },
             cardholderName:       { id: 'mp-holder',      placeholder: 'Nome como no cartão' },
             issuer:               { id: 'mp-issuer' },
+            installments:         { id: 'mp-installments' },
             identificationType:   { id: 'mp-id-type' },
             identificationNumber: { id: 'mp-id-number',  placeholder: 'Digite seu CPF' },
           },
@@ -89,23 +98,30 @@ export default function CheckoutPage() {
         cardFormRef.current = form;
       } catch (e) {
         console.error('[MP] cardForm init error', e);
+        // Retry once after a short delay if context already existed
+        timerId = setTimeout(() => { if (active) mountForm(); }, 300);
       }
     }
 
-    if (window.MercadoPago) {
-      mountForm();
-    } else if (!document.getElementById('mp-sdk')) {
-      const s  = document.createElement('script');
-      s.id     = 'mp-sdk';
-      s.src    = MP_SDK;
-      s.onload = mountForm;
-      document.head.appendChild(s);
-    } else {
-      document.getElementById('mp-sdk')!.addEventListener('load', mountForm);
-    }
+    // Small delay so React StrictMode cleanup settles before remounting
+    const initTimer = setTimeout(() => {
+      if (window.MercadoPago) {
+        mountForm();
+      } else if (!document.getElementById('mp-sdk')) {
+        const s  = document.createElement('script');
+        s.id     = 'mp-sdk';
+        s.src    = MP_SDK;
+        s.onload = mountForm;
+        document.head.appendChild(s);
+      } else {
+        document.getElementById('mp-sdk')!.addEventListener('load', mountForm);
+      }
+    }, 80);
 
     return () => {
       active = false;
+      clearTimeout(initTimer);
+      clearTimeout(timerId);
       try { cardFormRef.current?.unmount?.(); } catch {}
       cardFormRef.current = null;
     };
@@ -317,7 +333,9 @@ export default function CheckoutPage() {
                 </Field>
               </div>
 
-              <select id="mp-issuer" style={{ display: 'none' }} />
+              {/* Fields required by MP but hidden for subscriptions */}
+              <select id="mp-issuer"       style={{ display: 'none' }} />
+              <select id="mp-installments" style={{ display: 'none' }} />
 
               {error && <ErrorBox message={error} />}
 
