@@ -10,7 +10,9 @@ import {
 
 declare global { interface Window { MercadoPago: any; } }
 
-const MP_SDK = 'https://sdk.mercadopago.com/js/v2';
+const MP_SDK        = 'https://sdk.mercadopago.com/js/v2';
+// Public key is safe to embed in client code — it is designed to be public
+const MP_PUBLIC_KEY = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY ?? 'APP_USR-bae4830f-8c04-4be6-bcef-7b2620120843';
 
 const FEATURES = [
   'Licitações gerenciadas ilimitadas',
@@ -45,7 +47,6 @@ export default function CheckoutPage() {
   const [copied, setCopied]         = useState(false);
   const [success, setSuccess]       = useState(false);
   const cardFormRef = useRef<any>(null);
-  const mountedRef  = useRef(false);
 
   // Check if user already has Expert plan
   useEffect(() => {
@@ -55,49 +56,59 @@ export default function CheckoutPage() {
       .catch(() => {});
   }, [router]);
 
-  // Mount MP card form
+  // Mount MP card form — re-runs every time card tab is shown
   useEffect(() => {
-    if (method !== 'card' || mountedRef.current) return;
-    mountedRef.current = true;
+    if (method !== 'card') return;
 
-    function init() {
-      const key = process.env.NEXT_PUBLIC_MP_PUBLIC_KEY;
-      if (!key || !window.MercadoPago) return;
-      const mp = new window.MercadoPago(key, { locale: 'pt-BR' });
-      cardFormRef.current = mp.cardForm({
-        amount: '99.99',
-        autoMount: true,
-        form: {
-          id: 'mp-form',
-          cardNumber:           { id: 'mp-card-number',  placeholder: '0000 0000 0000 0000' },
-          expirationDate:       { id: 'mp-expiry',        placeholder: 'MM/AA' },
-          securityCode:         { id: 'mp-cvv',           placeholder: 'CVV' },
-          cardholderName:       { id: 'mp-holder',        placeholder: 'Nome como no cartão' },
-          issuer:               { id: 'mp-issuer' },
-          identificationType:   { id: 'mp-id-type' },
-          identificationNumber: { id: 'mp-id-number',    placeholder: 'Digite seu CPF' },
-        },
-        callbacks: {
-          onFormMounted: () => setCardReady(true),
-          onSubmit:      handleCardSubmit,
-          onFetching:    () => {},
-        },
-      });
-    }
+    let active = true;
+    setCardReady(false);
 
-    if (window.MercadoPago) { init(); }
-    else {
-      const el = document.getElementById('mp-sdk');
-      if (el) { el.addEventListener('load', init); }
-      else {
-        const s  = document.createElement('script');
-        s.id     = 'mp-sdk';
-        s.src    = MP_SDK;
-        s.onload = init;
-        document.head.appendChild(s);
+    function mountForm() {
+      if (!active || !window.MercadoPago) return;
+      try {
+        const mp = new window.MercadoPago(MP_PUBLIC_KEY, { locale: 'pt-BR' });
+        const form = mp.cardForm({
+          amount:    '99.99',
+          autoMount: true,
+          form: {
+            id:                   'mp-form',
+            cardNumber:           { id: 'mp-card-number', placeholder: '0000 0000 0000 0000' },
+            expirationDate:       { id: 'mp-expiry',      placeholder: 'MM/AA' },
+            securityCode:         { id: 'mp-cvv',         placeholder: 'CVV' },
+            cardholderName:       { id: 'mp-holder',      placeholder: 'Nome como no cartão' },
+            issuer:               { id: 'mp-issuer' },
+            identificationType:   { id: 'mp-id-type' },
+            identificationNumber: { id: 'mp-id-number',  placeholder: 'Digite seu CPF' },
+          },
+          callbacks: {
+            onFormMounted: (err: any) => { if (!err && active) setCardReady(true); },
+            onSubmit:      handleCardSubmit,
+            onFetching:    () => {},
+          },
+        });
+        cardFormRef.current = form;
+      } catch (e) {
+        console.error('[MP] cardForm init error', e);
       }
     }
-    return () => { try { cardFormRef.current?.unmount?.(); } catch {} };
+
+    if (window.MercadoPago) {
+      mountForm();
+    } else if (!document.getElementById('mp-sdk')) {
+      const s  = document.createElement('script');
+      s.id     = 'mp-sdk';
+      s.src    = MP_SDK;
+      s.onload = mountForm;
+      document.head.appendChild(s);
+    } else {
+      document.getElementById('mp-sdk')!.addEventListener('load', mountForm);
+    }
+
+    return () => {
+      active = false;
+      try { cardFormRef.current?.unmount?.(); } catch {}
+      cardFormRef.current = null;
+    };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [method]);
 
