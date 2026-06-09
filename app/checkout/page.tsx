@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   Lock, Check, CreditCard, Loader2, Copy, CheckCircle, QrCode, Star,
   ShieldCheck, ChevronRight,
@@ -191,9 +192,14 @@ export default function CheckoutPage() {
         padding: '0 24px', height: '64px',
         display: 'flex', alignItems: 'center', justifyContent: 'space-between',
       }}>
-        <span style={{ fontSize: '22px', fontWeight: 900, color: '#0a1175', letterSpacing: '-0.5px' }}>
-          Licitah
-        </span>
+        <Image
+          src="/logo.png"
+          alt="Licitah"
+          width={130}
+          height={40}
+          style={{ objectFit: 'contain', height: '36px', width: 'auto' }}
+          priority
+        />
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#6B7280', fontSize: '13px' }}>
           <Lock style={{ width: '14px', height: '14px', color: '#22C55E' }} />
           Checkout seguro

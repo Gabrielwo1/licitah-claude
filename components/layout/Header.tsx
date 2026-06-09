@@ -2,6 +2,7 @@
 
 import { Bell } from 'lucide-react';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useSession } from 'next-auth/react';
 import { MobileMenuButton } from './Sidebar';
 import { useEffect, useState } from 'react';
@@ -44,19 +45,21 @@ export function Header({ onMenuClick, title }: HeaderProps) {
         borderBottom: '1px solid #E5E5E5',
       }}
     >
-      {/* Left: hamburger + page title */}
+      {/* Left: hamburger + logo */}
       <MobileMenuButton onClick={onMenuClick} />
 
-      <div className="flex-1 min-w-0">
-        {title && (
-          <h1
-            className="text-lg font-bold truncate"
-            style={{ color: '#262E3A' }}
-          >
-            {title}
-          </h1>
-        )}
-      </div>
+      <Link href="/dashboard" className="flex items-center">
+        <Image
+          src="/logo.png"
+          alt="Licitah"
+          width={120}
+          height={36}
+          style={{ objectFit: 'contain', height: '32px', width: 'auto' }}
+          priority
+        />
+      </Link>
+
+      <div className="flex-1 min-w-0" />
 
       {/* Right: notifications + avatar */}
       <div className="flex items-center gap-3">
