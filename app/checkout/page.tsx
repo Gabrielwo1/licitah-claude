@@ -316,6 +316,16 @@ export default function CheckoutPage() {
                     : <><Lock style={{ width: '16px', height: '16px' }} /> Assinar por R$ 99,99/mês</>
                 }
               </button>
+
+              <div style={{
+                display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+              }}>
+                <ShieldCheck style={{ width: '14px', height: '14px', color: '#009EE3', flexShrink: 0 }} />
+                <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                  Pagamento 100% seguro e criptografado pelo{' '}
+                  <strong style={{ color: '#009EE3' }}>Mercado Pago</strong>
+                </span>
+              </div>
             </form>
           )}
 
@@ -355,6 +365,16 @@ export default function CheckoutPage() {
                       : <><QrCode style={{ width: '16px', height: '16px' }} /> Gerar QR Code PIX — R$ 99,99</>
                     }
                   </button>
+
+                  <div style={{
+                    display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px',
+                  }}>
+                    <ShieldCheck style={{ width: '14px', height: '14px', color: '#009EE3', flexShrink: 0 }} />
+                    <span style={{ fontSize: '11px', color: '#9CA3AF' }}>
+                      Pagamento 100% seguro e criptografado pelo{' '}
+                      <strong style={{ color: '#009EE3' }}>Mercado Pago</strong>
+                    </span>
+                  </div>
                 </>
               ) : (
                 /* QR code display */
@@ -497,28 +517,51 @@ export default function CheckoutPage() {
             </div>
           </div>
 
-          {/* Trust badges */}
+          {/* Mercado Pago trust badge — destaque */}
+          <div style={{
+            background:   'linear-gradient(135deg, #009EE3 0%, #0078C1 100%)',
+            borderRadius: '12px', padding: '16px 20px',
+            display:      'flex', alignItems: 'center', gap: '14px',
+          }}>
+            <div style={{
+              width: '44px', height: '44px', borderRadius: '10px',
+              backgroundColor: 'rgba(255,255,255,0.2)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
+            }}>
+              <ShieldCheck style={{ width: '24px', height: '24px', color: '#fff' }} />
+            </div>
+            <div>
+              <p style={{ fontSize: '13px', fontWeight: 800, color: '#fff', margin: 0, lineHeight: 1.3 }}>
+                100% seguro • Processado pelo Mercado Pago
+              </p>
+              <p style={{ fontSize: '11px', color: 'rgba(255,255,255,0.85)', margin: '3px 0 0', lineHeight: 1.4 }}>
+                Seus dados financeiros são criptografados e nunca armazenados em nossos servidores.
+              </p>
+            </div>
+          </div>
+
+          {/* Demais garantias */}
           <div style={{
             backgroundColor: '#fff', border: '1px solid #E5E7EB',
-            borderRadius: '12px', padding: '16px 20px',
+            borderRadius: '12px', padding: '14px 20px',
             display: 'flex', flexDirection: 'column', gap: '10px',
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <ShieldCheck style={{ width: '18px', height: '18px', color: '#22C55E', flexShrink: 0 }} />
+              <Lock style={{ width: '16px', height: '16px', color: '#009EE3', flexShrink: 0 }} />
               <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>
-                Checkout SSL — dados 100% criptografados
+                Conexão SSL — dados 100% criptografados
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Lock style={{ width: '18px', height: '18px', color: '#3B82F6', flexShrink: 0 }} />
+              <Check style={{ width: '16px', height: '16px', color: '#22C55E', flexShrink: 0 }} />
               <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>
-                Pagamento processado pelo Mercado Pago
+                Cancele a qualquer momento, sem multa
               </span>
             </div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-              <Check style={{ width: '18px', height: '18px', color: '#E07028', flexShrink: 0 }} />
+              <ShieldCheck style={{ width: '16px', height: '16px', color: '#E07028', flexShrink: 0 }} />
               <span style={{ fontSize: '12px', color: '#374151', fontWeight: 600 }}>
-                Cancele a qualquer momento
+                Cobrança automática segura e transparente
               </span>
             </div>
           </div>
