@@ -280,7 +280,7 @@ export default function CheckoutPage() {
           <form id="mp-form" style={{ display: method === 'card' ? 'flex' : 'none', flexDirection: 'column', gap: '18px' }}>
 
               <Field label="Nome no cartão">
-                <div id="mp-holder" style={mpField} />
+                <input id="mp-holder" style={{ ...inputStyle, width: '100%' }} placeholder="Nome como no cartão" />
               </Field>
 
               <Field label="Número do cartão">
@@ -575,7 +575,7 @@ export default function CheckoutPage() {
       <style>{`
         @keyframes spin { to { transform: rotate(360deg); } }
         #mp-card-number iframe, #mp-expiry iframe, #mp-cvv iframe,
-        #mp-holder iframe, #mp-id-type iframe, #mp-id-number iframe
+        #mp-id-type iframe, #mp-id-number iframe
         { width: 100% !important; height: 40px !important; }
         @media (max-width: 768px) {
           main { grid-template-columns: 1fr !important; }
