@@ -59,6 +59,7 @@ export function LicitacaoCard({
   const [fav, setFav] = useState(isFavorite);
   const [favLoading, setFavLoading] = useState(false);
   const [gerenciandoLoading, setGerenciandoLoading] = useState(false);
+  const [gerenciandoError, setGerenciandoError] = useState<string | null>(null);
   const [itensOpen, setItensOpen] = useState(false);
   const [itens, setItens] = useState<any[] | null>(null);
   const [itensLoading, setItensLoading] = useState(false);
@@ -130,9 +131,11 @@ export function LicitacaoCard({
 
   async function handleGerenciar(e: React.MouseEvent) {
     e.preventDefault();
+    e.stopPropagation();
     setGerenciandoLoading(true);
+    setGerenciandoError(null);
     try {
-      await fetch('/api/gerenciadas', {
+      const res = await fetch('/api/gerenciadas', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -147,6 +150,14 @@ export function LicitacaoCard({
           dataEncerramento: licitacao.dataEncerramentoProposta,
         }),
       });
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setGerenciandoError(data.userMessage || data.error || 'Erro ao gerenciar licitação');
+        return;
+      }
+    } catch {
+      setGerenciandoError('Erro de conexão. Tente novamente.');
+      return;
     } finally {
       setGerenciandoLoading(false);
     }
@@ -322,6 +333,12 @@ export function LicitacaoCard({
             </span>
           )}
         </div>
+
+        {gerenciandoError && (
+          <div style={{ fontSize: '12px', color: '#DC2626', marginBottom: '6px', padding: '6px 10px', backgroundColor: '#FEF2F2', borderRadius: '6px', border: '1px solid #FECACA' }}>
+            {gerenciandoError}
+          </div>
+        )}
 
         {/* Action buttons */}
         <div className="flex items-center gap-2 flex-wrap">

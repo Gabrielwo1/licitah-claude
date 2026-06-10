@@ -1745,12 +1745,50 @@ export default function GerenciarLicitacaoPage() {
   useEffect(() => {
     async function load() {
       setLoading(true);
-      // Busca dados salvos no banco (evita chamada PNCP e problema com / na URL)
+      // 1. Try DB first
       const res = await fetch(`/api/gerenciadas?identificador=${encodeURIComponent(licitacaoId)}`);
       if (res.ok) {
         const data = await res.json();
-        setLicitacao(data.data || null);
+        if (data.data) {
+          setLicitacao(data.data);
+          setLoading(false);
+          return;
+        }
       }
+
+      // 2. Not in DB — fetch from PNCP and auto-save
+      try {
+        const pncpRes = await fetch(`/api/licitacoes/${encodeURIComponent(licitacaoId)}`);
+        if (pncpRes.ok) {
+          const { licitacao: pncp } = await pncpRes.json();
+          if (pncp) {
+            await fetch('/api/gerenciadas', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                identificador: licitacaoId,
+                objeto: pncp.objetoCompra,
+                orgao: pncp.orgaoEntidade?.razaoSocial,
+                cidade: pncp.unidadeOrgao?.municipioNome,
+                uf: pncp.unidadeOrgao?.ufSigla,
+                valor: pncp.valorTotalEstimado,
+                situacao: pncp.situacaoCompraNome,
+                dataAbertura: pncp.dataAberturaProposta,
+                dataEncerramento: pncp.dataEncerramentoProposta,
+              }),
+            });
+            // Re-fetch from DB after save
+            const saved = await fetch(`/api/gerenciadas?identificador=${encodeURIComponent(licitacaoId)}`);
+            if (saved.ok) {
+              const savedData = await saved.json();
+              setLicitacao(savedData.data || null);
+            }
+          }
+        }
+      } catch {
+        // PNCP unavailable — page will show "not found" but tabs still work
+      }
+
       setLoading(false);
     }
     load();
