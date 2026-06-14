@@ -234,19 +234,19 @@ export default function LandingPage() {
       const FROM = 103000;
       let n = TARGET;
 
-      if (!reduce && rafLive) {
-        // Animate count-up on first render
-        const dur = 1400;
+      // Delay matches reveal animation (~680ms) so user sees the count-up
+      setTimeout(() => {
+        if (!liveOpen) return;
+        const dur = 1600;
         const t0 = performance.now();
-        const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+        const ease = (p: number) => 1 - Math.pow(1 - p, 3);
         const step = (now: number) => {
           const p = Math.min((now - t0) / dur, 1);
-          const val = Math.round(FROM + (TARGET - FROM) * ease(p));
-          liveOpen.textContent = val.toLocaleString('pt-BR');
+          liveOpen.textContent = Math.round(FROM + (TARGET - FROM) * ease(p)).toLocaleString('pt-BR');
           if (p < 1) requestAnimationFrame(step);
         };
         requestAnimationFrame(step);
-      }
+      }, reduce ? 0 : 500);
 
       // Slowly increment and flash every 8s
       intervals.push(setInterval(() => {
