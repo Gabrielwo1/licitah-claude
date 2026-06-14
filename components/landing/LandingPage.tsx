@@ -475,58 +475,81 @@ export default function LandingPage() {
             <h2>Mais contratos, <span className="o">menos complicação</span></h2>
             <p>Pare de perder editais por desorganização. O Licitah reúne tudo o que você precisa para acompanhar, organizar e vencer licitações com clareza do começo ao fim.</p>
           </div>
-          <div className="lc-demo reveal d1" id="lcDemo">
-            <div className="lc-browser">
-              <div className="lc-bar">
-                <div className="lc-dots"><i></i><i></i><i></i></div>
-                <div className="lc-url">app.licitah.com.br/oportunidades</div>
+          <div className="feat-demo reveal d1">
+            {/* KPI stat cards */}
+            <div className="feat-demo__stats">
+              <div className="stat">
+                <b className="stat__num"><span className="pre">+</span><span data-count="12000">0</span></b>
+                <span className="stat__lbl">Licitações monitoradas por dia</span>
               </div>
-              <div className="lc-body">
-                <div className="lc-card">
-                  <div className="lc-card__title">Aquisição de equipamentos de informática</div>
-                  <div className="lc-card__meta"><span>Ministério da Defesa</span><span>Brasília · DF</span></div>
-                  <div className="lc-card__side">
-                    <span className="lc-tag lc-tag--open">Aberta</span>
-                    <span className="lc-val">R$ 240 mil</span>
-                    <button className="lc-btn">Gerenciar</button>
-                    <span className="lc-managed-badge" style={{ display: 'none' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      Gerenciando
-                    </span>
-                  </div>
-                </div>
-                <div className="lc-card">
-                  <div className="lc-card__title">Contratação de serviços de limpeza predial</div>
-                  <div className="lc-card__meta"><span>Prefeitura de Curitiba</span><span>Curitiba · PR</span></div>
-                  <div className="lc-card__side">
-                    <span className="lc-tag lc-tag--urg">Urgente</span>
-                    <span className="lc-val">R$ 85 mil</span>
-                    <button className="lc-btn">Gerenciar</button>
-                    <span className="lc-managed-badge" style={{ display: 'none' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      Gerenciando
-                    </span>
-                  </div>
-                </div>
-                <div className="lc-card">
-                  <div className="lc-card__title">Fornecimento de mobiliário corporativo</div>
-                  <div className="lc-card__meta"><span>TRF 4ª Região</span><span>Porto Alegre · RS</span></div>
-                  <div className="lc-card__side">
-                    <span className="lc-tag lc-tag--new">Nova</span>
-                    <span className="lc-val">R$ 132 mil</span>
-                    <button className="lc-btn">Gerenciar</button>
-                    <span className="lc-managed-badge" style={{ display: 'none' }}>
-                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
-                      Gerenciando
-                    </span>
-                  </div>
-                </div>
+              <div className="stat">
+                <b className="stat__num o"><span className="pre">−</span><span data-count="70">0</span><span className="suf">%</span></b>
+                <span className="stat__lbl">Menos tempo organizando documentos</span>
+              </div>
+              <div className="stat">
+                <b className="stat__num"><span className="pre">+</span><span data-count="38">0</span><span className="suf">%</span></b>
+                <span className="stat__lbl">Na sua taxa de vitória</span>
+              </div>
+              <div className="stat">
+                <b className="stat__num o"><span data-count="100">0</span><span className="suf">%</span></b>
+                <span className="stat__lbl">Online — sem instalar nada</span>
               </div>
             </div>
-            <div className="lc-cursor" id="lcCursor" aria-hidden="true">
-              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-                <path d="M4 2L18.5 10.5L11.5 12L8.5 19.5L4 2Z" fill="white" stroke="#1a1a2e" strokeWidth="1.5" strokeLinejoin="round"/>
-              </svg>
+
+            {/* Animated demo */}
+            <div className="lc-demo" id="lcDemo">
+              <div className="lc-browser">
+                <div className="lc-bar">
+                  <div className="lc-dots"><i></i><i></i><i></i></div>
+                  <div className="lc-url">app.licitah.com.br/oportunidades</div>
+                </div>
+                <div className="lc-body">
+                  <div className="lc-card">
+                    <div className="lc-card__title">Aquisição de equipamentos de informática</div>
+                    <div className="lc-card__meta"><span>Ministério da Defesa</span><span>Brasília · DF</span></div>
+                    <div className="lc-card__side">
+                      <span className="lc-tag lc-tag--open">Aberta</span>
+                      <span className="lc-val">R$ 240 mil</span>
+                      <button className="lc-btn">Gerenciar</button>
+                      <span className="lc-managed-badge" style={{ display: 'none' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Gerenciando
+                      </span>
+                    </div>
+                  </div>
+                  <div className="lc-card">
+                    <div className="lc-card__title">Contratação de serviços de limpeza predial</div>
+                    <div className="lc-card__meta"><span>Prefeitura de Curitiba</span><span>Curitiba · PR</span></div>
+                    <div className="lc-card__side">
+                      <span className="lc-tag lc-tag--urg">Urgente</span>
+                      <span className="lc-val">R$ 85 mil</span>
+                      <button className="lc-btn">Gerenciar</button>
+                      <span className="lc-managed-badge" style={{ display: 'none' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Gerenciando
+                      </span>
+                    </div>
+                  </div>
+                  <div className="lc-card">
+                    <div className="lc-card__title">Fornecimento de mobiliário corporativo</div>
+                    <div className="lc-card__meta"><span>TRF 4ª Região</span><span>Porto Alegre · RS</span></div>
+                    <div className="lc-card__side">
+                      <span className="lc-tag lc-tag--new">Nova</span>
+                      <span className="lc-val">R$ 132 mil</span>
+                      <button className="lc-btn">Gerenciar</button>
+                      <span className="lc-managed-badge" style={{ display: 'none' }}>
+                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                        Gerenciando
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+              <div className="lc-cursor" id="lcCursor" aria-hidden="true">
+                <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                  <path d="M4 2L18.5 10.5L11.5 12L8.5 19.5L4 2Z" fill="white" stroke="#1a1a2e" strokeWidth="1.5" strokeLinejoin="round"/>
+                </svg>
+              </div>
             </div>
           </div>
         </div>

@@ -297,8 +297,12 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 .stat__num .suf { font-size: .62em; margin-left: 1px; opacity: .85; }
 .stat__lbl { display: block; margin-top: 12px; font-size: 14.5px; color: var(--muted); line-height: 1.4; }
 
+/* ---------- Stats + demo two-col ---------- */
+.feat-demo { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; align-items: start; margin-top: 8px; }
+.feat-demo__stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+
 /* ---------- Licitação interactive demo ---------- */
-.lc-demo { position: relative; margin-top: 8px; user-select: none; }
+.lc-demo { position: relative; user-select: none; }
 .lc-browser { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-md); overflow: hidden; }
 .lc-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
 .lc-dots { display: flex; gap: 5px; flex: none; }
@@ -684,6 +688,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   .header__cta .btn--ghost { display: none; }
 }
 @media (max-width: 760px) {
+  .feat-demo { grid-template-columns: 1fr; gap: 18px; }
   .cards3, .pillars { grid-template-columns: 1fr; }
   .compare { grid-template-columns: 1fr; gap: 14px; }
   .compare__arrow { transform: rotate(90deg); width: 44px; height: 44px; }
@@ -707,6 +712,7 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
   .header { padding: 14px 0; }
   .footer__grid { grid-template-columns: 1fr; gap: 22px; }
   .statband { grid-template-columns: 1fr 1fr; gap: 12px; }
+  .feat-demo__stats { gap: 10px; }
   .stat { padding: 22px 18px; }
   .hero__meta { gap: 14px; max-width: none; }
   .hero__meta .m { padding-left: 14px; }
