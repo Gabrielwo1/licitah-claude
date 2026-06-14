@@ -259,11 +259,98 @@ export default function LandingPage() {
       }, 8000));
     }
 
+    /* Interactive licitação demo */
+    let demoAnimCancelled = false;
+    const lcDemo = document.getElementById('lcDemo');
+    const lcCursor = document.getElementById('lcCursor');
+    if (lcDemo && lcCursor && !reduce) {
+      const eio = (t: number) => t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t;
+
+      const moveCursor = (toX: number, toY: number, ms: number) =>
+        new Promise<void>(res => {
+          if (demoAnimCancelled) { res(); return; }
+          const t0 = performance.now();
+          const x0 = parseFloat(lcCursor.style.left) || 0;
+          const y0 = parseFloat(lcCursor.style.top) || 0;
+          const step = (now: number) => {
+            if (demoAnimCancelled) { res(); return; }
+            const p = Math.min((now - t0) / ms, 1), e = eio(p);
+            lcCursor.style.left = (x0 + (toX - x0) * e) + 'px';
+            lcCursor.style.top  = (y0 + (toY - y0) * e) + 'px';
+            if (p < 1) requestAnimationFrame(step); else res();
+          };
+          requestAnimationFrame(step);
+        });
+
+      const sleep = (ms: number) => new Promise<void>(res => setTimeout(res, ms));
+
+      const pos = (el: HTMLElement, ox = 0.5, oy = 0.5) => {
+        const dr = lcDemo.getBoundingClientRect(), er = el.getBoundingClientRect();
+        return { x: er.left - dr.left + er.width * ox - 4, y: er.top - dr.top + er.height * oy - 2 };
+      };
+
+      const run = async () => {
+        await sleep(1200);
+        while (!demoAnimCancelled) {
+          const cards = Array.from(lcDemo.querySelectorAll<HTMLElement>('.lc-card'));
+          const btns  = Array.from(lcDemo.querySelectorAll<HTMLElement>('.lc-btn'));
+          const badges = Array.from(lcDemo.querySelectorAll<HTMLElement>('.lc-managed-badge'));
+
+          cards.forEach(c => c.classList.remove('hovered', 'managed'));
+          btns.forEach(b => { b.style.display = ''; b.classList.remove('clicking'); });
+          badges.forEach(b => { b.style.display = 'none'; });
+
+          lcCursor.style.opacity = '1';
+          if (cards[0]) {
+            const p0 = pos(cards[0], 0, 0.5);
+            lcCursor.style.left = (p0.x - 30) + 'px';
+            lcCursor.style.top  = p0.y + 'px';
+          }
+          await sleep(400);
+
+          for (let i = 0; i < cards.length; i++) {
+            if (demoAnimCancelled) return;
+            const card = cards[i], btn = btns[i], badge = badges[i];
+
+            const cardP = pos(card, 0.35, 0.5);
+            await moveCursor(cardP.x, cardP.y, 520);
+            if (demoAnimCancelled) return;
+            card.classList.add('hovered');
+            await sleep(550);
+            if (demoAnimCancelled) return;
+
+            const btnP = pos(btn, 0.5, 0.5);
+            await moveCursor(btnP.x, btnP.y, 400);
+            if (demoAnimCancelled) return;
+            await sleep(280);
+            if (demoAnimCancelled) return;
+
+            lcCursor.style.transform = 'scale(.82)';
+            btn.classList.add('clicking');
+            await sleep(140);
+            if (demoAnimCancelled) return;
+            lcCursor.style.transform = '';
+            btn.classList.remove('clicking');
+
+            card.classList.remove('hovered');
+            card.classList.add('managed');
+            btn.style.display = 'none';
+            if (badge) badge.style.display = 'flex';
+            await sleep(860);
+            if (demoAnimCancelled) return;
+          }
+          await sleep(1400);
+        }
+      };
+      run();
+    }
+
     return () => {
       window.removeEventListener('scroll', onScroll);
       window.removeEventListener('scroll', requestCheck);
       window.removeEventListener('resize', requestCheck);
       intervals.forEach(clearInterval);
+      demoAnimCancelled = true;
     };
   }, []);
 
@@ -388,22 +475,58 @@ export default function LandingPage() {
             <h2>Mais contratos, <span className="o">menos complicação</span></h2>
             <p>Pare de perder editais por desorganização. O Licitah reúne tudo o que você precisa para acompanhar, organizar e vencer licitações com clareza do começo ao fim.</p>
           </div>
-          <div className="statband reveal d1">
-            <div className="stat">
-              <b className="stat__num"><span className="pre">+</span><span data-count="12000">0</span></b>
-              <span className="stat__lbl">Licitações monitoradas por dia</span>
+          <div className="lc-demo reveal d1" id="lcDemo">
+            <div className="lc-browser">
+              <div className="lc-bar">
+                <div className="lc-dots"><i></i><i></i><i></i></div>
+                <div className="lc-url">app.licitah.com.br/oportunidades</div>
+              </div>
+              <div className="lc-body">
+                <div className="lc-card">
+                  <div className="lc-card__title">Aquisição de equipamentos de informática</div>
+                  <div className="lc-card__meta"><span>Ministério da Defesa</span><span>Brasília · DF</span></div>
+                  <div className="lc-card__side">
+                    <span className="lc-tag lc-tag--open">Aberta</span>
+                    <span className="lc-val">R$ 240 mil</span>
+                    <button className="lc-btn">Gerenciar</button>
+                    <span className="lc-managed-badge" style={{ display: 'none' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Gerenciando
+                    </span>
+                  </div>
+                </div>
+                <div className="lc-card">
+                  <div className="lc-card__title">Contratação de serviços de limpeza predial</div>
+                  <div className="lc-card__meta"><span>Prefeitura de Curitiba</span><span>Curitiba · PR</span></div>
+                  <div className="lc-card__side">
+                    <span className="lc-tag lc-tag--urg">Urgente</span>
+                    <span className="lc-val">R$ 85 mil</span>
+                    <button className="lc-btn">Gerenciar</button>
+                    <span className="lc-managed-badge" style={{ display: 'none' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Gerenciando
+                    </span>
+                  </div>
+                </div>
+                <div className="lc-card">
+                  <div className="lc-card__title">Fornecimento de mobiliário corporativo</div>
+                  <div className="lc-card__meta"><span>TRF 4ª Região</span><span>Porto Alegre · RS</span></div>
+                  <div className="lc-card__side">
+                    <span className="lc-tag lc-tag--new">Nova</span>
+                    <span className="lc-val">R$ 132 mil</span>
+                    <button className="lc-btn">Gerenciar</button>
+                    <span className="lc-managed-badge" style={{ display: 'none' }}>
+                      <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.2" strokeLinecap="round" strokeLinejoin="round"><path d="M20 6 9 17l-5-5"/></svg>
+                      Gerenciando
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="stat">
-              <b className="stat__num o"><span className="pre">−</span><span data-count="70">0</span><span className="suf">%</span></b>
-              <span className="stat__lbl">Menos tempo organizando documentos</span>
-            </div>
-            <div className="stat">
-              <b className="stat__num"><span className="pre">+</span><span data-count="38">0</span><span className="suf">%</span></b>
-              <span className="stat__lbl">Na sua taxa de vitória</span>
-            </div>
-            <div className="stat">
-              <b className="stat__num o"><span data-count="100">0</span><span className="suf">%</span></b>
-              <span className="stat__lbl">Online — sem instalar nada</span>
+            <div className="lc-cursor" id="lcCursor" aria-hidden="true">
+              <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
+                <path d="M4 2L18.5 10.5L11.5 12L8.5 19.5L4 2Z" fill="white" stroke="#1a1a2e" strokeWidth="1.5" strokeLinejoin="round"/>
+              </svg>
             </div>
           </div>
         </div>

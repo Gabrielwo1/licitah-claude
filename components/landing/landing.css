@@ -297,6 +297,33 @@ html { scroll-behavior: smooth; -webkit-text-size-adjust: 100%; }
 .stat__num .suf { font-size: .62em; margin-left: 1px; opacity: .85; }
 .stat__lbl { display: block; margin-top: 12px; font-size: 14.5px; color: var(--muted); line-height: 1.4; }
 
+/* ---------- Licitação interactive demo ---------- */
+.lc-demo { position: relative; margin-top: 8px; user-select: none; }
+.lc-browser { background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); box-shadow: var(--sh-md); overflow: hidden; }
+.lc-bar { display: flex; align-items: center; gap: 8px; padding: 10px 14px; background: var(--surface-2); border-bottom: 1px solid var(--line); }
+.lc-dots { display: flex; gap: 5px; flex: none; }
+.lc-dots i { width: 9px; height: 9px; border-radius: 50%; display: block; }
+.lc-dots i:nth-child(1) { background: #ff5f57; }
+.lc-dots i:nth-child(2) { background: #ffbd2e; }
+.lc-dots i:nth-child(3) { background: #28ca41; }
+.lc-url { flex: 1; text-align: center; font-size: 11px; color: var(--muted); background: var(--bg); border: 1px solid var(--line); border-radius: 6px; padding: 3px 10px; max-width: 280px; margin: 0 auto; }
+.lc-body { padding: 14px 16px; display: flex; flex-direction: column; gap: 9px; }
+.lc-card { position: relative; background: var(--bg); border: 1.5px solid var(--line); border-radius: 10px; padding: 12px 14px; display: grid; grid-template-columns: 1fr auto; gap: 4px 14px; transition: border-color .25s, box-shadow .25s, background .3s; }
+.lc-card.hovered { border-color: rgba(255,106,26,.55); box-shadow: 0 0 0 3px rgba(255,106,26,.1); }
+.lc-card.managed { border-color: #15a35b; background: rgba(21,163,91,.05); }
+.lc-card__title { font-size: 12.5px; font-weight: 600; color: var(--ink); line-height: 1.35; grid-column: 1; }
+.lc-card__meta { font-size: 10.5px; color: var(--muted); grid-column: 1; display: flex; gap: 8px; flex-wrap: wrap; }
+.lc-card__side { grid-column: 2; grid-row: 1 / span 2; display: flex; flex-direction: column; align-items: flex-end; justify-content: space-between; gap: 8px; min-width: 84px; }
+.lc-tag { font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 999px; white-space: nowrap; }
+.lc-tag--open { background: rgba(21,163,91,.12); color: #15a35b; }
+.lc-tag--urg  { background: rgba(255,106,26,.12); color: var(--orange); }
+.lc-tag--new  { background: rgba(47,107,255,.12); color: #2f6bff; }
+.lc-val { font-size: 11.5px; font-weight: 700; color: var(--navy-700); font-family: var(--font-display); }
+.lc-btn { font-size: 10.5px; font-weight: 700; padding: 5px 12px; border-radius: 7px; border: none; cursor: default; background: var(--orange); color: #fff; transition: transform .12s; box-shadow: 0 1px 4px rgba(255,106,26,.3); white-space: nowrap; }
+.lc-btn.clicking { transform: scale(.88); }
+.lc-managed-badge { align-items: center; gap: 4px; font-size: 11px; font-weight: 700; color: #15a35b; white-space: nowrap; }
+.lc-cursor { position: absolute; pointer-events: none; z-index: 20; opacity: 0; left: 0; top: 0; transition: opacity .35s; }
+
 /* ============================================================
    ANTES x DEPOIS
    ============================================================ */
