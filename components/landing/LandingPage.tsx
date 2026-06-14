@@ -227,13 +227,35 @@ export default function LandingPage() {
       }
     }
 
-    /* Slow-growing total licitações counter */
+    /* Total licitações counter — count-up on mount, slow increment after */
     const liveOpen = document.getElementById('liveOpen');
     if (liveOpen) {
-      let n = 103256;
+      const TARGET = 103256;
+      const FROM = 103000;
+      let n = TARGET;
+
+      if (!reduce && rafLive) {
+        // Animate count-up on first render
+        const dur = 1400;
+        const t0 = performance.now();
+        const ease = (t: number) => 1 - Math.pow(1 - t, 3);
+        const step = (now: number) => {
+          const p = Math.min((now - t0) / dur, 1);
+          const val = Math.round(FROM + (TARGET - FROM) * ease(p));
+          liveOpen.textContent = val.toLocaleString('pt-BR');
+          if (p < 1) requestAnimationFrame(step);
+        };
+        requestAnimationFrame(step);
+      }
+
+      // Slowly increment and flash every 8s
       intervals.push(setInterval(() => {
         n += Math.floor(Math.random() * 3) + 1;
         liveOpen.textContent = n.toLocaleString('pt-BR');
+        liveOpen.classList.remove('ticking');
+        void (liveOpen as HTMLElement).offsetWidth; // force reflow
+        liveOpen.classList.add('ticking');
+        setTimeout(() => liveOpen.classList.remove('ticking'), 600);
       }, 8000));
     }
 
@@ -292,7 +314,9 @@ export default function LandingPage() {
           <div className="hero__copy">
             <span className="eyebrow reveal">
               <span className="dot"></span>
-              {' '}+ de <b id="liveOpen">103.256</b> Licitações em nosso sistema
+              + de{' '}
+              <span className="eyebrow__num" id="liveOpen">103.256</span>
+              <span className="eyebrow__lbl">Licitações em nosso sistema</span>
             </span>
             <h1 className="reveal d1">Encontre, gerencie e <span className="grad">ganhe licitações</span>. Automaticamente.</h1>
             <p className="hero__sub reveal d2">A IA encontra as oportunidades certas, resume editais de 80 páginas em segundos e o robô dá seus lances no Compras.gov. Tudo automático, em um único lugar.</p>
