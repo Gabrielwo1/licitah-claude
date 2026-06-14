@@ -227,14 +227,14 @@ export default function LandingPage() {
       }
     }
 
-    /* Live open ticker */
+    /* Slow-growing total licitações counter */
     const liveOpen = document.getElementById('liveOpen');
     if (liveOpen) {
-      let n = 1248;
+      let n = 103256;
       intervals.push(setInterval(() => {
-        n += Math.floor(Math.random() * 3);
+        n += Math.floor(Math.random() * 3) + 1;
         liveOpen.textContent = n.toLocaleString('pt-BR');
-      }, 4200));
+      }, 8000));
     }
 
     return () => {
@@ -292,7 +292,7 @@ export default function LandingPage() {
           <div className="hero__copy">
             <span className="eyebrow reveal">
               <span className="dot"></span>
-              {' '}<b id="liveOpen" data-count="1248">0</b>&nbsp;licitações abertas agora
+              {' '}+ de <b id="liveOpen">103.256</b> Licitações em nosso sistema
             </span>
             <h1 className="reveal d1">Encontre, gerencie e <span className="grad">ganhe licitações</span>. Automaticamente.</h1>
             <p className="hero__sub reveal d2">A IA encontra as oportunidades certas, resume editais de 80 páginas em segundos e o robô dá seus lances no Compras.gov. Tudo automático, em um único lugar.</p>
