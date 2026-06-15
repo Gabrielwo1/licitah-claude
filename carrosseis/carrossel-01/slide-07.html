@@ -5,32 +5,24 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
-  <style>
-    .cta-headline { font-size:84px; font-weight:800; line-height:1.02; letter-spacing:-2px; }
-    .cta-sub { margin-top:32px; font-size:34px; font-weight:600; line-height:1.35; max-width:860px; opacity:0.95; }
-    .cta-sub strong { font-weight:800; }
-    .save-row { display:flex; align-items:center; gap:22px; margin-top:48px; }
-    .logo-chip { background:#fff; border-radius:999px; padding:18px 34px 18px 20px; display:inline-flex; align-items:center; gap:16px; }
-    .logo-chip img { width:62px; height:62px; }
-    .logo-chip .logo-word { color:var(--accent); font-size:38px; font-weight:800; }
-    .alert-zone { margin-top:auto; transform:rotate(-1.5deg); }
-    .glow3 { position:absolute; width:820px; height:820px; right:-300px; bottom:-300px;
-             background:radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 70%); }
-  </style>
 </head>
 <body>
-  <div class="slide-container slide--cta">
-    <div class="glow3"></div>
+  <div class="ed" style="background:linear-gradient(160deg,#FF7714 0%,#E25500 100%);">
+    <div class="ed-index" style="top:-40px; right:20px; font-size:280px; color:rgba(255,255,255,0.12);">07</div>
 
-    <div class="save-row">
-      <svg viewBox="0 0 24 24" width="60" height="60" fill="#fff"><path d="M6 2a2 2 0 0 0-2 2v18l8-5.5 8 5.5V4a2 2 0 0 0-2-2H6z"/></svg>
-      <span class="eyebrow" style="letter-spacing:5px;">Guarde para depois</span>
+    <!-- Ícone de bookmark gigante de fundo -->
+    <svg viewBox="0 0 24 24" style="position:absolute; right:-60px; bottom:120px; width:560px; height:560px; fill:rgba(255,255,255,0.10); z-index:1;"><path d="M6 2a2 2 0 0 0-2 2v18l8-5.5 8 5.5V4a2 2 0 0 0-2-2H6z"/></svg>
+
+    <div style="position:absolute; left:84px; right:84px; top:120px; color:#fff; z-index:3;">
+      <span class="kicker" style="background:#0a1175; color:#fff;">Próximo passo</span>
+      <h2 style="font-size:96px; font-weight:800; line-height:0.98; letter-spacing:-3px; margin-top:36px;">Salve esse post.</h2>
+      <p style="font-size:34px; font-weight:600; line-height:1.35; margin-top:28px; max-width:840px;">
+        Na semana que vem: <strong style="font-weight:800;">como encontrar o primeiro edital do seu setor.</strong>
+      </p>
     </div>
 
-    <h2 class="cta-headline">Salve esse post.</h2>
-    <p class="cta-sub">Na semana que vem: <strong>como encontrar o primeiro edital do seu setor.</strong></p>
-
-    <div class="alert-zone">
+    <!-- Bloco de alerta -->
+    <div style="position:absolute; left:84px; right:140px; top:640px; z-index:3; transform:rotate(-1.5deg);">
       <div class="ui-alert">
         <span class="ua-bell"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 2a6 6 0 0 0-6 6c0 5-2 7-2 7h16s-2-2-2-7a6 6 0 0 0-6-6zM10 21a2 2 0 0 0 4 0"/></svg></span>
         <div>
@@ -40,10 +32,20 @@
       </div>
     </div>
 
-    <div style="height:40px;"></div>
-    <div class="logo-chip">
-      <img src="logo.png" alt="Licitah">
-      <span class="logo-word">licitah</span>
+    <!-- Chip de logo -->
+    <div style="position:absolute; left:84px; top:860px; z-index:3;">
+      <div style="background:#fff; border-radius:999px; padding:18px 36px 18px 20px; display:inline-flex; align-items:center; gap:16px; box-shadow:0 20px 50px rgba(0,0,0,0.22);">
+        <img src="logo.png" alt="Licitah" style="width:60px; height:60px;">
+        <span style="color:var(--accent); font-size:38px; font-weight:800;">licitah</span>
+      </div>
+    </div>
+
+    <div class="footer footer--light">
+      <div class="brand"><img src="logo.png" alt="Licitah"><span class="bw">licitah</span><span class="handle">@licitah</span></div>
+      <div class="nav">
+        <div class="progress"><i style="background:#0a1175"></i><i style="background:#0a1175"></i><i style="background:#0a1175"></i><i style="background:#0a1175"></i><i style="background:#0a1175"></i><i style="background:#0a1175"></i><i style="background:#0a1175"></i></div>
+        <span class="pageno">07 / 07</span>
+      </div>
     </div>
   </div>
 </body>

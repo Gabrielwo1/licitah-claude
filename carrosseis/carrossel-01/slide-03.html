@@ -5,52 +5,38 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
-  <style>
-    .slide-number { color:var(--secondary); }
-    .title-block { margin-bottom:52px; }
-    .title-block .accent-bar { margin-bottom:28px; }
-    .card-list { display:flex; flex-direction:column; gap:24px; }
-    .feat {
-      display:flex; align-items:center; gap:28px;
-      background:#fff; border:1px solid var(--border); border-radius:18px;
-      box-shadow:0 10px 30px rgba(10,17,117,0.08); padding:32px 34px;
-    }
-    .feat .ic { flex:0 0 auto; width:72px; height:72px; border-radius:16px; background:var(--accent); display:flex; align-items:center; justify-content:center; }
-    .feat .ic svg { width:40px; height:40px; }
-    .feat .txt { font-size:34px; font-weight:700; line-height:1.25; color:var(--foreground); }
-  </style>
 </head>
 <body>
-  <div class="slide-container slide--content">
-    <span class="slide-number">03 / 07</span>
+  <div class="ed" style="background:var(--background);">
+    <div class="ed-index" style="top:-30px; right:30px; font-size:260px;">03</div>
 
-    <div class="spacer"></div>
-
-    <div class="title-block">
-      <div class="accent-bar"></div>
-      <h2 class="headline-lg" style="color:var(--primary);">Diferente do cliente privado, o governo:</h2>
+    <div style="position:absolute; left:84px; right:84px; top:104px;">
+      <span class="kicker kicker--navy">Por que é diferente</span>
+      <h2 class="h-mid" style="color:var(--primary); margin-top:34px; max-width:780px;">Diferente do cliente privado, o&nbsp;governo:</h2>
     </div>
 
-    <div class="card-list">
-      <div class="feat">
-        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
-        <span class="txt">Publica o que precisa comprar</span>
+    <div style="position:absolute; left:84px; right:84px; top:470px; display:flex; flex-direction:column; gap:32px;">
+      <div class="nrow">
+        <div class="nidx">01</div>
+        <div class="ntxt"><span>Publica o que precisa comprar</span></div>
       </div>
-      <div class="feat">
-        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
-        <span class="txt">Define prazo de pagamento em contrato</span>
+      <div class="nrow" style="min-height:200px;">
+        <div class="nidx">02</div>
+        <div class="ntxt"><span>Define prazo de pagamento <span style="color:var(--accent);">em contrato</span></span></div>
+        <div class="nph"><img src="img/aperto.jpg" alt="Assinatura de contrato"></div>
       </div>
-      <div class="feat">
-        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 6L9 17l-5-5"/></svg></span>
-        <span class="txt">Não pode cancelar sem justificativa legal</span>
+      <div class="nrow">
+        <div class="nidx">03</div>
+        <div class="ntxt"><span>Não pode cancelar sem justificativa legal</span></div>
       </div>
     </div>
 
-    <div class="spacer"></div>
-
-    <div class="logo-area">
-      <img src="logo.png" alt="Licitah" width="44" height="44">
-      <span class="logo-word" style="color:var(--primary);">licitah</span>
+    <div class="footer footer--dark">
+      <div class="brand"><img src="logo.png" alt="Licitah"><span class="bw">licitah</span><span class="handle">@licitah</span></div>
+      <div class="nav">
+        <div class="progress"><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i></div>
+        <span class="pageno">03 / 07</span>
+      </div>
     </div>
   </div>
 </body>

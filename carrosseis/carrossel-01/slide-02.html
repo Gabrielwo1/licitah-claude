@@ -5,54 +5,44 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
-  <style>
-    .slide-number { color:var(--secondary); }
-    .big-number { font-size:128px; font-weight:800; line-height:0.95; letter-spacing:-4px; color:var(--accent); }
-    .big-number small { display:block; font-size:34px; font-weight:700; letter-spacing:-1px; color:var(--primary); margin-bottom:8px; }
-    .num-body { margin-top:28px; font-size:30px; max-width:900px; }
-    .list-wrap { margin-top:auto; }
-    .list-cap { font-size:21px; font-weight:700; letter-spacing:1px; text-transform:uppercase; color:var(--secondary); margin-bottom:16px; display:flex; align-items:center; gap:12px; }
-  </style>
 </head>
 <body>
-  <div class="slide-container slide--content">
-    <span class="slide-number">02 / 07</span>
+  <div class="ed" style="background:#0a1175;">
+    <!-- Bloco de foto (faixa direita) -->
+    <div class="pblock" style="top:0; right:0; width:420px; height:1350px;">
+      <img src="img/dinheiro.jpg" alt="Cédulas de R$100">
+      <div style="position:absolute; inset:0; background:linear-gradient(90deg, #0a1175 0%, rgba(10,17,117,0.35) 45%, rgba(10,17,117,0) 100%);"></div>
+    </div>
 
-    <div class="accent-bar" style="margin-bottom:32px;"></div>
-    <div class="big-number"><small>Em 2024, o governo comprou</small>R$100 bilhões</div>
+    <!-- Conteúdo -->
+    <div style="position:absolute; left:84px; top:96px; width:600px; color:#fff;">
+      <span class="kicker kicker--orange">O dado</span>
+      <div style="font-size:26px; font-weight:600; opacity:0.8; margin:36px 0 6px;">Em 2024, o governo brasileiro comprou</div>
+      <div style="font-size:128px; font-weight:800; line-height:0.95; letter-spacing:-4px; color:#FF8533;">R$100<br>bilhões</div>
+      <p class="p-lead" style="margin-top:26px; opacity:0.9; max-width:540px;">Em produtos e serviços — de empresas <strong style="color:#FF8533;">como a sua</strong>.</p>
 
-    <p class="body-text num-body">
-      Em produtos e serviços — de empresas <span class="highlight">como a sua</span>. Tudo publicado, aberto e disponível.
-    </p>
-
-    <div class="list-wrap">
-      <div class="list-cap">
-        <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="#FF6600" stroke-width="2.5" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4.3-4.3"/></svg>
-        Editais abertos agora · Licitah
-      </div>
-      <div class="ui-list">
+      <div style="font-size:19px; font-weight:700; letter-spacing:1.5px; text-transform:uppercase; opacity:0.65; margin:40px 0 16px;">Editais abertos agora · Licitah</div>
+      <div class="ui-list" style="max-width:600px;">
         <div class="ui-row">
           <span class="ir-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#0a1175" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
-          <span class="ir-main"><span class="ir-title">Aquisição de material de escritório</span><span class="ir-sub">Prefeitura de Campinas · SP · Pregão 90012/2026</span></span>
+          <span class="ir-main"><span class="ir-title">Material de escritório</span><span class="ir-sub">Pref. de Campinas · SP</span></span>
           <span class="ir-val">R$ 850 mil</span>
         </div>
         <div class="ui-row">
           <span class="ir-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#0a1175" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
-          <span class="ir-main"><span class="ir-title">Serviço de limpeza e conservação</span><span class="ir-sub">Governo do Estado · MG · Pregão 71/2026</span></span>
+          <span class="ir-main"><span class="ir-title">Equipamentos de TI</span><span class="ir-sub">Univ. Federal · BA</span></span>
           <span class="ir-val">R$ 1,2 mi</span>
-        </div>
-        <div class="ui-row">
-          <span class="ir-ico"><svg viewBox="0 0 24 24" fill="none" stroke="#0a1175" stroke-width="2"><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 8h8M8 12h8M8 16h5"/></svg></span>
-          <span class="ir-main"><span class="ir-title">Fornecimento de equipamentos de TI</span><span class="ir-sub">Universidade Federal · BA · Pregão 305/2026</span></span>
-          <span class="ir-val">R$ 430 mil</span>
         </div>
       </div>
     </div>
 
-    <div style="height:24px;"></div>
-    <div class="logo-area">
-      <img src="logo.png" alt="Licitah" width="44" height="44">
-      <span class="logo-word" style="color:var(--primary);">licitah</span>
+    <!-- Footer -->
+    <div class="footer footer--light">
+      <div class="brand"><img src="logo.png" alt="Licitah"><span class="bw">licitah</span><span class="handle">@licitah</span></div>
+      <div class="nav">
+        <div class="progress"><i class="on"></i><i class="on"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="pageno">02 / 07</span>
+      </div>
     </div>
   </div>
 </body>

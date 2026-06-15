@@ -339,3 +339,87 @@ html, body {
 .ui-stat .us-value { font-size: 46px; font-weight: 800; color: var(--primary); margin-top: 4px; }
 .ui-window-dots { display: flex; gap: 9px; }
 .ui-window-dots span { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }
+
+/* =========================================================
+   SISTEMA EDITORIAL v3 — "blocos de foto" estilo magazine
+   ========================================================= */
+.ed { position: relative; width: 1080px; height: 1350px; overflow: hidden;
+      font-family: 'Montserrat', sans-serif; background: var(--background); }
+.ed * { box-sizing: border-box; }
+
+/* Camada de conteúdo com margem padrão */
+.ed-pad { position: relative; z-index: 3; padding: 84px 84px 0; }
+
+/* Blocos de foto */
+.pblock { position: absolute; overflow: hidden; }
+.pblock > img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.grad-b   { position:absolute; inset:0; background:linear-gradient(180deg, rgba(6,11,74,0) 35%, rgba(6,11,74,0.92) 100%); }
+.grad-bl  { position:absolute; inset:0; background:linear-gradient(115deg, rgba(6,11,74,0.85) 0%, rgba(6,11,74,0.25) 55%, rgba(6,11,74,0) 100%); }
+.grad-t   { position:absolute; inset:0; background:linear-gradient(180deg, rgba(6,11,74,0.78) 0%, rgba(6,11,74,0) 45%); }
+.tint-orange { position:absolute; inset:0; background:rgba(255,102,0,0.10); mix-blend-mode:multiply; }
+
+/* Kicker / tag pill */
+.kicker {
+  display:inline-flex; align-items:center; gap:12px;
+  font-size:22px; font-weight:800; letter-spacing:3px; text-transform:uppercase;
+  padding:13px 24px; border-radius:999px; line-height:1;
+}
+.kicker--orange { background:var(--accent); color:#fff; }
+.kicker--navy   { background:var(--primary); color:#fff; }
+.kicker--ghost  { background:rgba(255,255,255,0.14); color:#fff; backdrop-filter:blur(4px); border:1.5px solid rgba(255,255,255,0.35); }
+.kicker .dot { width:12px; height:12px; border-radius:50%; background:#fff; }
+.kicker--orange .dot { background:#fff; }
+
+/* Índice editorial gigante de fundo */
+.ed-index {
+  position:absolute; font-weight:800; line-height:0.8; letter-spacing:-6px;
+  color:rgba(255,102,0,0.10); z-index:1; user-select:none;
+}
+
+/* Tipografia editorial */
+.h-mega { font-size:82px; font-weight:800; line-height:1.02; letter-spacing:-2.5px; }
+.h-big  { font-size:60px; font-weight:800; line-height:1.08; letter-spacing:-1.5px; }
+.h-mid  { font-size:46px; font-weight:800; line-height:1.12; letter-spacing:-1px; }
+.p-lead { font-size:31px; font-weight:500; line-height:1.4; }
+.p-lead strong { font-weight:700; }
+
+/* Footer persistente com progresso */
+.footer {
+  position:absolute; left:84px; right:84px; bottom:54px; z-index:5;
+  display:flex; align-items:center; justify-content:space-between;
+  padding-top:26px; border-top:1.5px solid;
+}
+.footer .brand { display:flex; align-items:center; gap:14px; }
+.footer .brand img { width:42px; height:42px; }
+.footer .brand .bw { font-size:27px; font-weight:800; }
+.footer .brand .handle { font-size:21px; font-weight:600; opacity:0.6; margin-left:4px; }
+.footer .nav { display:flex; align-items:center; gap:22px; }
+.footer .progress { display:flex; gap:9px; }
+.footer .progress i { width:30px; height:7px; border-radius:99px; display:block; }
+.footer .pageno { font-size:22px; font-weight:800; letter-spacing:1px; }
+
+/* Footer claro (sobre fundo escuro/foto) */
+.footer--light { border-color:rgba(255,255,255,0.22); color:#fff; }
+.footer--light .brand .handle { color:#fff; }
+.footer--light .progress i { background:rgba(255,255,255,0.28); }
+.footer--light .progress i.on { background:var(--accent); }
+/* Footer escuro (sobre fundo claro) */
+.footer--dark { border-color:var(--border); color:var(--primary); }
+.footer--dark .progress i { background:#D9D7E6; }
+.footer--dark .progress i.on { background:var(--accent); }
+
+/* Pull-quote editorial */
+.pull {
+  background:var(--primary); color:#fff; border-left:10px solid var(--accent);
+  padding:44px 48px; border-radius:0 22px 22px 0; box-shadow:0 30px 70px rgba(0,0,0,0.35);
+}
+
+/* Numbered feature row (slide lista) */
+.nrow { display:flex; align-items:stretch; gap:0; border-radius:20px; overflow:hidden;
+        box-shadow:0 12px 34px rgba(10,17,117,0.10); background:#fff; border:1px solid var(--border); }
+.nrow .nidx { flex:0 0 auto; width:118px; background:var(--primary); color:#fff;
+              display:flex; align-items:center; justify-content:center; font-size:52px; font-weight:800; }
+.nrow .ntxt { flex:1 1 auto; display:flex; align-items:center; padding:26px 32px;
+              font-size:31px; font-weight:700; line-height:1.25; color:var(--foreground); }
+.nrow .nph  { flex:0 0 auto; width:150px; }
+.nrow .nph img { width:100%; height:100%; object-fit:cover; }

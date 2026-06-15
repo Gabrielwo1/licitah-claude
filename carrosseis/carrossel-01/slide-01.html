@@ -5,51 +5,35 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
-  <style>
-    .cover-eyebrow { display:flex; align-items:center; gap:20px; margin-bottom:36px; }
-    .cover-eyebrow .accent-bar { margin:0; }
-    .cover-headline { font-size:66px; font-weight:800; line-height:1.08; letter-spacing:-1.5px; text-shadow:0 2px 24px rgba(0,0,0,0.35); }
-    .cover-sub { margin-top:36px; text-shadow:0 2px 16px rgba(0,0,0,0.35); }
-    .content-z { position:relative; z-index:2; display:flex; flex-direction:column; height:100%; }
-    .logo-chip { background:#FFFFFF; border-radius:999px; padding:14px 26px 14px 16px; display:flex; align-items:center; gap:14px; }
-    .logo-chip img { width:52px; height:52px; }
-    .logo-chip .logo-word { color:var(--primary); font-size:28px; font-weight:800; }
-  </style>
 </head>
 <body>
-  <div class="slide-container slide--cover" style="padding:0;">
-    <div class="photo-bg">
+  <div class="ed" style="background:linear-gradient(180deg,#0a1175,#060b4a);">
+    <!-- Bloco de foto (topo) -->
+    <div class="pblock" style="top:0; left:0; right:0; height:792px;">
       <img src="img/congresso.jpg" alt="Congresso Nacional">
-      <div class="dt-mult"></div>
-      <div class="dt-screen"></div>
-      <div class="dt-accent"></div>
-      <div class="dt-legib"></div>
+      <div class="grad-b"></div>
     </div>
 
-    <div class="content-z" style="padding:96px 90px;">
-      <div class="cover-eyebrow">
-        <span class="accent-bar"></span>
-        <span class="eyebrow">Vender para o governo</span>
-      </div>
+    <!-- Kicker sobre a foto -->
+    <div style="position:absolute; top:72px; left:84px; z-index:4;">
+      <span class="kicker kicker--orange">Vender para o governo</span>
+    </div>
 
-      <div class="spacer"></div>
+    <!-- Índice editorial -->
+    <div class="ed-index" style="top:560px; right:60px; font-size:240px; color:rgba(255,255,255,0.08);">01</div>
 
-      <h1 class="cover-headline">
-        O mercado que <span class="highlight">paga em dia</span>, não cancela e ainda publica o que precisa comprar online.
-      </h1>
-      <p class="subheadline cover-sub">E 90% das empresas nem sabe que pode entrar.</p>
+    <!-- Headline -->
+    <div style="position:absolute; left:84px; right:84px; top:826px; color:#fff; z-index:4;">
+      <h1 class="h-big">O mercado que <span style="color:#FF8533;">paga em dia</span>, não cancela e ainda publica o que precisa comprar online.</h1>
+      <p class="p-lead" style="margin-top:26px; opacity:0.88;">E 90% das empresas nem sabe que pode entrar.</p>
+    </div>
 
-      <div style="height:48px;"></div>
-
-      <div style="display:flex; align-items:center; justify-content:space-between;">
-        <div class="swipe-hint">
-          Arrasta pro lado
-          <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#FF6600" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
-        </div>
-        <div class="logo-chip">
-          <img src="logo.png" alt="Licitah">
-          <span class="logo-word">licitah</span>
-        </div>
+    <!-- Footer -->
+    <div class="footer footer--light">
+      <div class="brand"><img src="logo.png" alt="Licitah"><span class="bw">licitah</span><span class="handle">@licitah</span></div>
+      <div class="nav">
+        <div class="progress"><i class="on"></i><i></i><i></i><i></i><i></i><i></i><i></i></div>
+        <span class="pageno">01 / 07</span>
       </div>
     </div>
   </div>

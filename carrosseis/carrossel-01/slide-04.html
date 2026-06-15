@@ -6,22 +6,20 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
   <style>
-    .slide-number { color:var(--secondary); }
-    .lead { font-size:46px; font-weight:800; line-height:1.15; letter-spacing:-1px; color:var(--primary); }
-    .lead .nome { background:var(--primary); color:#fff; padding:2px 16px; border-radius:12px; }
-    .reforco { margin-top:18px; font-size:30px; font-weight:600; color:var(--foreground); }
-    .card-zone { margin-top:48px; }
+    @keyframes none {}
+    .pulse { width:14px; height:14px; border-radius:50%; background:#36e07a; box-shadow:0 0 0 6px rgba(54,224,122,0.25); }
   </style>
 </head>
 <body>
-  <div class="slide-container slide--content">
-    <span class="slide-number">04 / 07</span>
+  <div class="ed" style="background:linear-gradient(180deg,#0a1175,#060b4a);">
+    <div style="position:absolute; left:84px; right:84px; top:100px; color:#fff;">
+      <span class="kicker kicker--orange"><span class="pulse"></span> Aberto agora</span>
+      <h2 class="h-mid" style="margin-top:34px;">Isso tem nome: <span style="color:#FF8533;">licitação pública</span>.</h2>
+      <p class="p-lead" style="margin-top:16px; opacity:0.9;">E tem edital aberto agora para o seu setor:</p>
+    </div>
 
-    <div class="accent-bar" style="margin-bottom:32px;"></div>
-    <p class="lead">Isso tem nome: <span class="nome">licitação pública</span>.</p>
-    <p class="reforco">E tem edital aberto <span class="highlight">agora</span> para o seu setor:</p>
-
-    <div class="card-zone">
+    <!-- Card de produto (herói) -->
+    <div style="position:absolute; left:84px; right:84px; top:470px;">
       <div class="ui-card">
         <div class="uc-top">
           <span class="uc-fav"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 21s-7-4.35-9.5-8.5C1 9 2.5 5.5 6 5.5c2 0 3.2 1.2 4 2.3.8-1.1 2-2.3 4-2.3 3.5 0 5 3.5 3.5 7-2.5 4.15-9.5 8.5-9.5 8.5z"/></svg></span>
@@ -48,10 +46,12 @@
       </div>
     </div>
 
-    <div class="spacer"></div>
-    <div class="logo-area">
-      <img src="logo.png" alt="Licitah" width="44" height="44">
-      <span class="logo-word" style="color:var(--primary);">licitah</span>
+    <div class="footer footer--light">
+      <div class="brand"><img src="logo.png" alt="Licitah"><span class="bw">licitah</span><span class="handle">@licitah</span></div>
+      <div class="nav">
+        <div class="progress"><i class="on"></i><i class="on"></i><i class="on"></i><i class="on"></i><i></i><i></i><i></i></div>
+        <span class="pageno">04 / 07</span>
+      </div>
     </div>
   </div>
 </body>

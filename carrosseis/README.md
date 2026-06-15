@@ -16,7 +16,11 @@ para exportação em PNG (Puppeteer).
 | Logo         | `logo.png` | anel laranja + azul                   |
 
 - **Formato:** 1080×1350 (4:5 retrato) — maior alcance no feed.
-- `components.css` concentra todos os estilos reutilizáveis.
+- **Padrão atual (v3 — editorial):** fotos naturais em blocos, tipografia
+  forte estilo magazine, footer persistente com barra de progresso e
+  mockups reais do produto (card de licitação, lista de editais, alerta).
+- `components.css` concentra todos os estilos reutilizáveis (sistema
+  editorial, duotone e mockups de UX).
 - Cada `slide-XX.html` é renderizável sozinho (Google Fonts + `components.css`).
 
 ## Preview
