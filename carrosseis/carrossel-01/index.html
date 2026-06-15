@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Carrossel 01 — O mercado que paga em dia | Licitah</title>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    :root { --primary:#0a1175; --accent:#FF6600; --scale:0.3; }
+    * { box-sizing:border-box; margin:0; padding:0; }
+    body { font-family:'Montserrat',sans-serif; background:#1b1b22; color:#fff; padding:48px; }
+    header { margin-bottom:40px; }
+    header .tag { color:var(--accent); font-weight:800; letter-spacing:3px; font-size:14px; text-transform:uppercase; }
+    header h1 { font-size:34px; font-weight:800; margin-top:8px; }
+    header p { color:#9b9ba8; margin-top:8px; font-size:16px; }
+    .grid { display:flex; flex-wrap:wrap; gap:40px; }
+    .card { display:flex; flex-direction:column; align-items:center; gap:12px; }
+    .frame {
+      width:calc(1080px * var(--scale));
+      height:calc(1350px * var(--scale));
+      overflow:hidden;
+      border-radius:16px;
+      box-shadow:0 12px 40px rgba(0,0,0,0.4);
+    }
+    .frame iframe {
+      width:1080px; height:1350px; border:0;
+      transform:scale(var(--scale)); transform-origin:top left;
+    }
+    .card span { font-size:13px; color:#9b9ba8; font-weight:600; letter-spacing:1px; }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="tag">Licitah · Carrossel 01 · TOPO de funil</div>
+    <h1>O mercado que paga em dia</h1>
+    <p>7 slides · 1080×1350 (4:5) · Montserrat · #0a1175 / #FF6600</p>
+  </header>
+  <div class="grid">
+    <div class="card"><div class="frame"><iframe src="slide-01.html"></iframe></div><span>01 · CAPA</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-02.html"></iframe></div><span>02 · DADO</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-03.html"></iframe></div><span>03 · LISTA</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-04.html"></iframe></div><span>04 · NOME</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-05.html"></iframe></div><span>05 · REFLEXÃO</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-06.html"></iframe></div><span>06 · EMPODERA</span></div>
+    <div class="card"><div class="frame"><iframe src="slide-07.html"></iframe></div><span>07 · CTA</span></div>
+  </div>
+</body>
+</html>

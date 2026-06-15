@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="components.css">
+  <style>
+    .cta-headline { font-size:88px; font-weight:800; line-height:1.02; letter-spacing:-2px; }
+    .cta-sub { margin-top:40px; font-size:36px; font-weight:600; line-height:1.35; max-width:840px; opacity:0.95; }
+    .cta-sub strong { font-weight:800; }
+    .save-row { display:flex; align-items:center; gap:24px; margin-top:56px; }
+    .logo-chip { background:#fff; border-radius:999px; padding:18px 34px 18px 20px; display:inline-flex; align-items:center; gap:16px; }
+    .logo-chip img { width:62px; height:62px; }
+    .logo-chip .logo-word { color:var(--accent); font-size:38px; font-weight:800; }
+    .glow3 { position:absolute; width:820px; height:820px; right:-300px; bottom:-300px;
+             background:radial-gradient(circle, rgba(255,255,255,0.18) 0%, rgba(255,255,255,0) 70%); }
+  </style>
+</head>
+<body>
+  <div class="slide-container slide--cta">
+    <div class="glow3"></div>
+
+    <div class="spacer"></div>
+
+    <div class="save-row">
+      <svg viewBox="0 0 24 24" width="64" height="64" fill="#fff"><path d="M6 2a2 2 0 0 0-2 2v18l8-5.5 8 5.5V4a2 2 0 0 0-2-2H6z"/></svg>
+      <span class="eyebrow" style="letter-spacing:5px;">Guarde para depois</span>
+    </div>
+
+    <h2 class="cta-headline">Salve esse post.</h2>
+
+    <p class="cta-sub">
+      Na semana que vem: <strong>como encontrar o primeiro edital do seu setor.</strong>
+    </p>
+
+    <div class="spacer"></div>
+
+    <div class="logo-chip">
+      <img src="logo.png" alt="Licitah">
+      <span class="logo-word">licitah</span>
+    </div>
+  </div>
+</body>
+</html>

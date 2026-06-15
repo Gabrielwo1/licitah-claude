@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="components.css">
+  <style>
+    .cover-eyebrow { display:flex; align-items:center; gap:20px; margin-bottom:48px; }
+    .cover-eyebrow .accent-bar { margin:0; }
+    .cover-headline { font-size:66px; font-weight:800; line-height:1.08; letter-spacing:-1.5px; }
+    .cover-sub { margin-top:44px; }
+    .logo-chip { background:#FFFFFF; border-radius:999px; padding:14px 26px 14px 16px; display:flex; align-items:center; gap:14px; }
+    .logo-chip img { width:52px; height:52px; }
+    .logo-chip .logo-word { color:var(--primary); font-size:28px; font-weight:800; }
+    .glow { position:absolute; width:760px; height:760px; right:-260px; top:-220px;
+            background:radial-gradient(circle, rgba(255,102,0,0.35) 0%, rgba(255,102,0,0) 70%); }
+  </style>
+</head>
+<body>
+  <div class="slide-container slide--cover">
+    <div class="glow"></div>
+
+    <div class="cover-eyebrow">
+      <span class="accent-bar"></span>
+      <span class="eyebrow">Vender para o governo</span>
+    </div>
+
+    <h1 class="cover-headline">
+      O mercado que <span class="highlight">paga em dia</span>, não cancela e ainda publica o que precisa comprar online.
+    </h1>
+
+    <p class="subheadline cover-sub">E 90% das empresas nem sabe que pode entrar.</p>
+
+    <div class="spacer"></div>
+
+    <div class="swipe-hint">
+      Arrasta pro lado
+      <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="#FF6600" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
+    </div>
+
+    <div class="logo-corner logo-chip">
+      <img src="logo.png" alt="Licitah">
+      <span class="logo-word">licitah</span>
+    </div>
+  </div>
+</body>
+</html>
