@@ -196,3 +196,146 @@ html, body {
   letter-spacing: 1px;
   opacity: 0.85;
 }
+
+/* =========================================================
+   DUOTONE — fotos tratadas na paleta da marca
+   Uso:
+   <div class="photo-bg">
+     <img src="img/foo.jpg">
+     <div class="dt-mult"></div>
+     <div class="dt-screen"></div>
+     <div class="dt-legib"></div>
+   </div>
+   ========================================================= */
+.photo-bg {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate; /* contém os blend-modes */
+}
+.photo-bg > img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  filter: grayscale(100%) contrast(1.05) brightness(1.08);
+}
+.dt-mult {            /* tinge as sombras de azul escuro */
+  position: absolute; inset: 0;
+  background: #0a1175;
+  mix-blend-mode: multiply;
+  opacity: 0.86;
+}
+.dt-screen {          /* levanta as luzes para um azul vibrante */
+  position: absolute; inset: 0;
+  background: #2b34c9;
+  mix-blend-mode: screen;
+  opacity: 0.55;
+}
+.dt-accent {          /* brilho laranja sutil de marca */
+  position: absolute; inset: 0;
+  background: radial-gradient(circle at 80% 15%, rgba(255,102,0,0.45) 0%, rgba(255,102,0,0) 45%);
+  mix-blend-mode: screen;
+}
+.dt-legib {           /* gradiente para legibilidade do texto */
+  position: absolute; inset: 0;
+  background: linear-gradient(180deg, rgba(6,11,74,0.15) 0%, rgba(6,11,74,0.55) 55%, rgba(6,11,74,0.92) 100%);
+}
+.dt-legib--top {
+  background: linear-gradient(180deg, rgba(6,11,74,0.92) 0%, rgba(6,11,74,0.45) 45%, rgba(6,11,74,0.12) 100%);
+}
+
+/* =========================================================
+   MOCKUPS DE UX DO PRODUTO LICITAH
+   ========================================================= */
+
+/* ---- Card de licitação (réplica do LicitacaoCard) ---- */
+.ui-card {
+  background: #FFFFFF;
+  border: 1px solid #E8E8E8;
+  border-radius: 16px;
+  box-shadow: 0 30px 70px rgba(10,17,117,0.22);
+  overflow: hidden;
+  font-family: 'Montserrat', sans-serif;
+  color: #262E3A;
+}
+.ui-card .uc-top {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 22px 28px 14px;
+}
+.uc-fav {
+  width: 56px; height: 56px; border-radius: 10px;
+  background: #FF6600; display: flex; align-items: center; justify-content: center;
+}
+.uc-fav svg { width: 30px; height: 30px; }
+.uc-updated { font-size: 20px; color: #9B9B9B; }
+.ui-card .uc-body { padding: 0 28px 28px; }
+.uc-line { font-size: 25px; line-height: 1.5; margin-bottom: 12px; }
+.uc-line strong { color: #262E3A; }
+.uc-line .muted { color: #7B7B7B; }
+.uc-tags { display: flex; gap: 14px; flex-wrap: wrap; margin: 18px 0 22px; }
+.uc-tag {
+  font-size: 21px; font-weight: 700; padding: 8px 18px; border-radius: 8px; color: #fff;
+}
+.uc-tag--ok { background: #259F46; }
+.uc-btns { display: flex; gap: 14px; flex-wrap: wrap; }
+.uc-btn {
+  display: inline-flex; align-items: center; gap: 10px;
+  font-size: 21px; font-weight: 700; padding: 14px 22px; border-radius: 10px; color: #fff;
+}
+.uc-btn svg { width: 24px; height: 24px; }
+.uc-btn--dark { background: #262E3A; }
+.uc-btn--outline { background: #fff; color: #FF6600; border: 2px solid #FF6600; }
+.uc-btn--orange { background: #FF6600; }
+.uc-btn--ai { background: linear-gradient(135deg, #4F46E5, #7C3AED 50%, #A855F7); }
+.uc-btn--ask { background: linear-gradient(135deg, #0EA5E9, #0891B2 50%, #0E7490); }
+.uc-beta {
+  font-size: 14px; font-weight: 800; background: rgba(255,255,255,0.25);
+  padding: 3px 9px; border-radius: 5px; letter-spacing: 0.5px;
+}
+
+/* ---- Linha de edital em lista (dashboard) ---- */
+.ui-list { display: flex; flex-direction: column; gap: 16px; }
+.ui-row {
+  background: #fff; border: 1px solid #E8E8E8; border-radius: 14px;
+  box-shadow: 0 8px 24px rgba(10,17,117,0.10);
+  padding: 22px 26px; display: flex; align-items: center; gap: 22px;
+}
+.ui-row .ir-ico {
+  flex: 0 0 auto; width: 64px; height: 64px; border-radius: 12px;
+  background: #EEF0FF; display: flex; align-items: center; justify-content: center;
+}
+.ui-row .ir-ico svg { width: 34px; height: 34px; }
+.ui-row .ir-main { flex: 1 1 auto; min-width: 0; }
+.ui-row .ir-title { display: block; font-size: 24px; font-weight: 700; color: #262E3A; }
+.ui-row .ir-sub { display: block; font-size: 20px; color: #7B7B7B; margin-top: 4px; }
+.ui-row .ir-val {
+  flex: 0 0 auto; font-size: 23px; font-weight: 800; color: #259F46;
+  background: #E9F7EE; padding: 8px 16px; border-radius: 8px;
+}
+
+/* ---- Notificação / alerta de novo edital ---- */
+.ui-alert {
+  background: #fff; border-radius: 18px; box-shadow: 0 24px 60px rgba(0,0,0,0.25);
+  padding: 30px 34px; display: flex; gap: 22px; align-items: flex-start;
+  color: #262E3A;
+}
+.ui-alert .ua-bell {
+  flex: 0 0 auto; width: 74px; height: 74px; border-radius: 16px;
+  background: linear-gradient(135deg, #FF6600, #e05400);
+  display: flex; align-items: center; justify-content: center;
+}
+.ui-alert .ua-bell svg { width: 38px; height: 38px; }
+.ui-alert .ua-title { font-size: 27px; font-weight: 800; }
+.ui-alert .ua-text { font-size: 23px; color: #555; margin-top: 6px; line-height: 1.35; }
+
+/* ---- Chip de stat ---- */
+.ui-stat {
+  background: #fff; border: 1px solid #E8E8E8; border-radius: 16px;
+  box-shadow: 0 12px 30px rgba(10,17,117,0.10); padding: 26px 30px;
+}
+.ui-stat .us-label { font-size: 21px; color: #7B7B7B; font-weight: 600; }
+.ui-stat .us-value { font-size: 46px; font-weight: 800; color: var(--primary); margin-top: 4px; }
+.ui-window-dots { display: flex; gap: 9px; }
+.ui-window-dots span { width: 14px; height: 14px; border-radius: 50%; display: inline-block; }

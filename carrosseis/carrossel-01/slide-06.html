@@ -6,35 +6,44 @@
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="components.css">
   <style>
-    .slide-number { color:var(--secondary); }
-    .empower { font-size:52px; font-weight:800; line-height:1.18; letter-spacing:-1px; color:var(--primary); }
-    .empower .highlight { color:var(--accent); }
-    .criterio { margin-top:48px; font-size:34px; font-weight:600; line-height:1.4; color:var(--foreground); }
-    .criterio strong { color:var(--primary); }
-    .one-person { display:flex; align-items:center; gap:24px; margin-bottom:44px; }
-    .one-person .num { font-size:96px; font-weight:800; color:var(--accent); line-height:1; letter-spacing:-3px; }
-    .one-person .lab { font-size:30px; font-weight:700; color:var(--secondary); line-height:1.15; }
+    .content-z { position:relative; z-index:2; display:flex; flex-direction:column; height:100%; padding:96px 90px; }
+    .tag-1 {
+      display:inline-flex; align-items:center; gap:14px; align-self:flex-start;
+      background:var(--accent); color:#fff; font-size:24px; font-weight:800;
+      padding:14px 26px; border-radius:999px; letter-spacing:0.5px;
+    }
+    .empower { font-size:54px; font-weight:800; line-height:1.15; letter-spacing:-1px; text-shadow:0 2px 20px rgba(0,0,0,0.45); }
+    .empower .highlight { color:#FF8533; }
+    .criterio { margin-top:24px; font-size:30px; font-weight:600; line-height:1.4; text-shadow:0 2px 16px rgba(0,0,0,0.4); }
+    .criterio strong { color:#FF8533; }
   </style>
 </head>
 <body>
-  <div class="slide-container slide--content">
-    <span class="slide-number">06 / 07</span>
-
-    <div class="spacer"></div>
-
-    <div class="one-person">
-      <span class="num">1</span>
-      <span class="lab">funcionário<br>já é suficiente</span>
+  <div class="slide-container slide--cover" style="padding:0;">
+    <div class="photo-bg">
+      <img src="img/dono.jpg" alt="Dono de pequena empresa">
+      <div class="dt-mult" style="opacity:0.85;"></div>
+      <div class="dt-screen"></div>
+      <div class="dt-legib"></div>
     </div>
 
-    <p class="empower">Empresas com 1 funcionário <span class="highlight">vencem licitações todo dia.</span></p>
-    <p class="criterio">O tamanho não é o critério — o <strong>preço</strong> e a <strong>documentação</strong> são.</p>
+    <div class="content-z">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span class="tag-1">👤 1 funcionário</span>
+        <span class="slide-number" style="position:static; color:rgba(255,255,255,0.65);">06 / 07</span>
+      </div>
 
-    <div class="spacer"></div>
+      <div class="spacer"></div>
 
-    <div class="logo-area">
-      <img src="logo.png" alt="Licitah" width="44" height="44">
-      <span class="logo-word" style="color:var(--primary);">licitah</span>
+      <p class="empower">Empresas com 1 funcionário <span class="highlight">vencem licitações todo dia.</span></p>
+      <p class="criterio">O tamanho não é o critério — o <strong>preço</strong> e a <strong>documentação</strong> são.</p>
+
+      <div style="height:52px;"></div>
+
+      <div class="logo-area">
+        <img src="logo.png" alt="Licitah" width="44" height="44">
+        <span class="logo-word" style="color:#fff;">licitah</span>
+      </div>
     </div>
   </div>
 </body>
