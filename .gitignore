@@ -36,6 +36,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# carrossel build artifacts (zips gerados para download)
+carrosseis/**/*.zip
+carrosseis/*.zip
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts
